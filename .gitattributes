@@ -1,0 +1,2 @@
+# 한국어 Windows cmd.exe 호환: 저장소 내부는 UTF-8, 작업 트리는 CP949 + CRLF로 유지
+봇실행.bat text working-tree-encoding=CP949 eol=crlf
