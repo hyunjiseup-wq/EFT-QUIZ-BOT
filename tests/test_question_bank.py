@@ -39,6 +39,11 @@ class QuestionBankTests(unittest.TestCase):
         self.assertTrue(any("중복된 id" in error for error in errors))
         self.assertTrue(any("'hard' 문제 부족" in error for error in errors))
 
+    def test_validation_rejects_non_positive_session_count(self):
+        errors = validate_questions([make_question(1)], {"general": 0})
+
+        self.assertTrue(any("1 이상의 정수" in error for error in errors))
+
     def test_selection_respects_counts_without_duplicate_ids(self):
         questions = [make_question(i) for i in range(1, 6)]
         questions += [make_question(i, "hard") for i in range(6, 10)]
@@ -52,16 +57,16 @@ class QuestionBankTests(unittest.TestCase):
         self.assertEqual(len(selected), 5)
         self.assertEqual(len({question["id"] for question in selected}), 5)
         self.assertEqual(
-            {difficulty: sum(q["difficulty"] == difficulty for q in selected)
-             for difficulty in ("general", "hard")},
+            {
+                difficulty: sum(q["difficulty"] == difficulty for q in selected)
+                for difficulty in ("general", "hard")
+            },
             {"general": 3, "hard": 2},
         )
 
     def test_selection_rejects_an_undersized_pool(self):
         with self.assertRaises(QuestionDataError):
-            select_session_questions(
-                {"general": [make_question(1)]}, {"general": 2}
-            )
+            select_session_questions({"general": [make_question(1)]}, {"general": 2})
 
     def test_loader_rejects_non_array_root(self):
         with tempfile.TemporaryDirectory() as directory:

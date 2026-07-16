@@ -62,14 +62,20 @@ def load_questions(path: str | Path) -> list[dict]:
     return questions
 
 
-def validate_questions(
-    questions: Sequence[object], session_counts: Mapping[str, int]
-) -> list[str]:
+def validate_questions(questions: Sequence[object], session_counts: Mapping[str, int]) -> list[str]:
     """문제 형식과 출제 가능한 문제 수를 검사하고 오류 목록을 반환한다."""
     errors: list[str] = []
     seen_ids: set[int] = set()
     seen_texts: set[str] = set()
     difficulty_counts = {difficulty: 0 for difficulty in session_counts}
+
+    for difficulty, required_count in session_counts.items():
+        if (
+            not isinstance(required_count, int)
+            or isinstance(required_count, bool)
+            or required_count <= 0
+        ):
+            errors.append(f"난이도 '{difficulty}' 출제 수량은 1 이상의 정수여야 함")
 
     for position, raw_question in enumerate(questions, start=1):
         if not isinstance(raw_question, dict):
@@ -138,17 +144,17 @@ def validate_questions(
 
     for difficulty, required_count in session_counts.items():
         available = difficulty_counts[difficulty]
-        if available < required_count:
-            errors.append(
-                f"난이도 '{difficulty}' 문제 부족: {available}개/필요 {required_count}개"
-            )
+        if (
+            isinstance(required_count, int)
+            and not isinstance(required_count, bool)
+            and available < required_count
+        ):
+            errors.append(f"난이도 '{difficulty}' 문제 부족: {available}개/필요 {required_count}개")
 
     return errors
 
 
-def load_validated_questions(
-    path: str | Path, session_counts: Mapping[str, int]
-) -> list[dict]:
+def load_validated_questions(path: str | Path, session_counts: Mapping[str, int]) -> list[dict]:
     """문제를 불러와 검증하고, 오류가 있으면 봇 시작을 중단한다."""
     questions = load_questions(path)
     errors = validate_questions(questions, session_counts)

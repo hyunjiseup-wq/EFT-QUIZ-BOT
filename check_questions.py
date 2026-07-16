@@ -9,6 +9,7 @@
 정답이 바뀐 문제의 choices/answer/explanation을 questions.json에서 수정한 뒤
 다시 이 스크립트로 형식 검증을 하고 봇을 재시작하세요.
 """
+
 import sys
 
 import config
@@ -43,7 +44,8 @@ def main():
             diff_counts[q["difficulty"]] = diff_counts.get(q["difficulty"], 0) + 1
         detail = " ".join(
             f"{config.DIFFICULTY_LABEL[d]}{diff_counts[d]}"
-            for d in config.SESSION_COUNTS if d in diff_counts
+            for d in config.SESSION_COUNTS
+            if d in diff_counts
         )
         print(f"  {cat}: {len(pool)}문제 ({detail})")
 

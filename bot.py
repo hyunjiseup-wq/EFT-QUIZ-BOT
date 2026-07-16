@@ -1,6 +1,6 @@
 import asyncio
-import random
 import logging
+import random
 from dataclasses import dataclass, field
 
 import discord
@@ -22,7 +22,7 @@ intents = discord.Intents.default()
 
 class QuizBot(commands.Bot):
     async def setup_hook(self):
-        # on_ready는 재연결 시마다 반복 호출될 수 있으므로, 명령어 동기화는 setup_hook에서 1회만 수행
+        # on_ready는 재연결 시마다 반복될 수 있으므로 명령어 동기화는 여기서 1회만 수행한다.
         database.init_db()
         synced = await self.tree.sync()
         log.info(f"슬래시 명령어 {len(synced)}개 동기화 완료")
@@ -30,9 +30,7 @@ class QuizBot(commands.Bot):
 
 bot = QuizBot(command_prefix="!", intents=intents)
 
-ALL_QUESTIONS = load_validated_questions(
-    config.QUESTIONS_PATH, config.SESSION_COUNTS
-)
+ALL_QUESTIONS = load_validated_questions(config.QUESTIONS_PATH, config.SESSION_COUNTS)
 
 # 난이도별로 문제를 미리 그룹화 (매 세션마다 이 풀에서 랜덤 추출)
 QUESTIONS_BY_DIFFICULTY = group_by_difficulty(ALL_QUESTIONS)
@@ -40,17 +38,16 @@ QUESTIONS_BY_DIFFICULTY = group_by_difficulty(ALL_QUESTIONS)
 
 def build_session_questions() -> list:
     """난이도별로 config.SESSION_COUNTS 개수만큼 문제 풀에서 랜덤 추출 후, 전체 순서를 섞어 반환."""
-    return select_session_questions(
-        QUESTIONS_BY_DIFFICULTY, config.SESSION_COUNTS
-    )
+    return select_session_questions(QUESTIONS_BY_DIFFICULTY, config.SESSION_COUNTS)
 
 
-# user_id -> QuizSession
-active_sessions: dict[int, "QuizSession"] = {}
+# (guild_id, user_id) -> QuizSession
+active_sessions: dict[tuple[int, int], "QuizSession"] = {}
 
 
 @dataclass
 class QuizSession:
+    guild_id: int
     user_id: int
     username: str
     channel_id: int
@@ -58,9 +55,7 @@ class QuizSession:
     index: int = 0
     score: int = 0
     correct_count: int = 0
-    per_difficulty: dict = field(
-        default_factory=lambda: {d: [0, 0] for d in config.SESSION_COUNTS}
-    )
+    per_difficulty: dict = field(default_factory=lambda: {d: [0, 0] for d in config.SESSION_COUNTS})
     message: discord.InteractionMessage = None  # 응시자용 ephemeral 원본 메시지 (edit용)
     current_shuffled_choices: list = None  # 보기 표시 순서 (원본 인덱스 배열)
     finished: bool = False
@@ -83,14 +78,15 @@ class QuizSession:
         return (
             not self.finished
             and self.index < self.total
-            and active_sessions.get(self.user_id) is self
+            and active_sessions.get((self.guild_id, self.user_id)) is self
         )
 
 
 def cleanup_session(session: QuizSession):
     session.finished = True
-    if active_sessions.get(session.user_id) is session:
-        active_sessions.pop(session.user_id, None)
+    key = (session.guild_id, session.user_id)
+    if active_sessions.get(key) is session:
+        active_sessions.pop(key, None)
 
 
 def build_question_embed(session: QuizSession) -> discord.Embed:
@@ -143,7 +139,9 @@ class AnswerView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.session.user_id:
-            await interaction.response.send_message("이 퀴즈는 당신의 세션이 아니에요!", ephemeral=True)
+            await interaction.response.send_message(
+                "이 퀴즈는 당신의 세션이 아니에요!", ephemeral=True
+            )
             return False
         return True
 
@@ -173,7 +171,10 @@ class AnswerView(discord.ui.View):
             result_text = build_result_text(timed_out=False)
 
             await update_admin_log(
-                session, q, is_correct, timed_out=False,
+                session,
+                q,
+                is_correct,
+                timed_out=False,
                 chosen_text=q["choices"][chosen_original_idx],
             )
             await advance_or_finish(interaction, session, result_text)
@@ -219,13 +220,36 @@ async def advance_or_finish(interaction, session: QuizSession, result_text: str)
     if session.index >= session.total:
         embed = build_final_embed(session)
         # DB 쓰기는 스레드로 분리해 이벤트 루프 블로킹 방지
-        await asyncio.to_thread(
-            database.record_result,
-            session.user_id, session.username, session.score,
-            session.correct_count, session.total,
+        try:
+            await asyncio.to_thread(
+                database.record_result,
+                session.guild_id,
+                session.user_id,
+                session.username,
+                session.score,
+                session.correct_count,
+                session.total,
+            )
+        except Exception:
+            log.exception(
+                "퀴즈 결과 저장 실패 (guild=%s, user=%s)", session.guild_id, session.user_id
+            )
+            await edit_session_message(
+                session,
+                interaction,
+                content="⚠️ 퀴즈는 완료됐지만 기록 저장에 실패했습니다. 관리자에게 문의해주세요.",
+                embed=embed,
+                view=None,
+            )
+            await finalize_admin_log(session, aborted=True, reason="기록 저장 실패")
+            cleanup_session(session)
+            return
+
+        updated = await edit_session_message(
+            session, interaction, content=result_text, embed=embed, view=None
         )
-        await finalize_admin_log(session, aborted=False)
-        await edit_session_message(session, interaction, content=result_text, embed=embed, view=None)
+        if updated:
+            await finalize_admin_log(session, aborted=False)
         cleanup_session(session)
         return
 
@@ -257,6 +281,7 @@ def build_final_embed(session: QuizSession) -> discord.Embed:
 #  동시 응시 시 채널 도배 + 디스코드 레이트리밋 문제가 발생하기 때문)
 # ---------------------------------------------------------------------------
 
+
 async def get_admin_channel(client: discord.Client):
     if not config.ADMIN_LOG_CHANNEL_ID:
         return None
@@ -270,7 +295,9 @@ async def get_admin_channel(client: discord.Client):
     return channel
 
 
-def build_admin_embed(session: QuizSession, status_line: str, color: discord.Color) -> discord.Embed:
+def build_admin_embed(
+    session: QuizSession, status_line: str, color: discord.Color
+) -> discord.Embed:
     # 임베드 description 한도(4096자)를 고려해, 넘치면 오래된 기록부터 잘라낸다
     lines = list(session.admin_log_lines)
     description = "\n".join(lines)
@@ -288,8 +315,7 @@ def build_admin_embed(session: QuizSession, status_line: str, color: discord.Col
     embed.add_field(name="정답", value=f"{session.correct_count}/{answered}", inline=True)
     # 난이도별 현황은 응시자에게는 비공개, 관전 로그에서만 표시
     breakdown = " · ".join(
-        f"{config.DIFFICULTY_LABEL[d]} {c}/{t}"
-        for d, (c, t) in session.per_difficulty.items() if t
+        f"{config.DIFFICULTY_LABEL[d]} {c}/{t}" for d, (c, t) in session.per_difficulty.items() if t
     )
     embed.add_field(name="난이도별", value=breakdown or "-", inline=False)
     return embed
@@ -307,7 +333,10 @@ async def start_admin_log(client: discord.Client, session: QuizSession):
 
 
 async def update_admin_log(
-    session: QuizSession, q: dict, is_correct: bool, timed_out: bool,
+    session: QuizSession,
+    q: dict,
+    is_correct: bool,
+    timed_out: bool,
     chosen_text: str | None = None,
 ):
     if session.admin_log_message is None:
@@ -322,7 +351,9 @@ async def update_admin_log(
     if timed_out or not is_correct:
         answer_text = q["choices"][q["answer"]]
         if chosen_text:
-            session.admin_log_lines.append(f"　└ 응답: {chosen_text[:40]} → 정답: **{answer_text[:40]}**")
+            session.admin_log_lines.append(
+                f"　└ 응답: {chosen_text[:40]} → 정답: **{answer_text[:40]}**"
+            )
         else:
             session.admin_log_lines.append(f"　└ 정답: **{answer_text[:40]}**")
         explanation = q.get("explanation")
@@ -357,6 +388,7 @@ async def finalize_admin_log(session: QuizSession, aborted: bool, reason: str = 
 # 슬래시 명령어
 # ---------------------------------------------------------------------------
 
+
 @bot.event
 async def on_ready():
     log.info(f"{bot.user}로 로그인 완료")
@@ -364,8 +396,11 @@ async def on_ready():
 
 @bot.tree.command(
     name="타르코프퀴즈시작",
-    description=f"이스케이프 프롬 타르코프 지식 퀴즈를 시작합니다 ({config.TOTAL_QUESTIONS}문제, 객관식)",
+    description=(
+        f"이스케이프 프롬 타르코프 지식 퀴즈를 시작합니다 ({config.TOTAL_QUESTIONS}문제, 객관식)"
+    ),
 )
+@discord.app_commands.guild_only()
 async def start_quiz(interaction: discord.Interaction):
     if config.QUIZ_CHANNEL_ID and interaction.channel_id != config.QUIZ_CHANNEL_ID:
         await interaction.response.send_message(
@@ -374,9 +409,11 @@ async def start_quiz(interaction: discord.Interaction):
         )
         return
 
-    if interaction.user.id in active_sessions:
+    key = (interaction.guild_id, interaction.user.id)
+    if key in active_sessions:
         await interaction.response.send_message(
-            "이미 진행 중인 퀴즈가 있어요! `/타르코프퀴즈포기`로 종료하거나 기존 퀴즈를 끝내주세요.",
+            "이미 진행 중인 퀴즈가 있어요! `/타르코프퀴즈포기`로 종료하거나 "
+            "기존 퀴즈를 끝내주세요.",
             ephemeral=True,
         )
         return
@@ -384,12 +421,13 @@ async def start_quiz(interaction: discord.Interaction):
     questions = build_session_questions()
 
     session = QuizSession(
+        guild_id=interaction.guild_id,
         user_id=interaction.user.id,
         username=interaction.user.display_name,
         channel_id=interaction.channel_id,
         questions=questions,
     )
-    active_sessions[interaction.user.id] = session
+    active_sessions[key] = session
 
     embed = build_question_embed(session)
     view = AnswerView(session)
@@ -405,15 +443,22 @@ async def start_quiz(interaction: discord.Interaction):
     await start_admin_log(interaction.client, session)
 
 
-@bot.tree.command(name="타르코프퀴즈포기", description="진행 중인 퀴즈를 포기합니다 (기록에 저장되지 않음)")
+@bot.tree.command(
+    name="타르코프퀴즈포기", description="진행 중인 퀴즈를 포기합니다 (기록에 저장되지 않음)"
+)
+@discord.app_commands.guild_only()
 async def give_up_cmd(interaction: discord.Interaction):
-    session = active_sessions.get(interaction.user.id)
+    session = active_sessions.get((interaction.guild_id, interaction.user.id))
     if session is None:
         await interaction.response.send_message("진행 중인 퀴즈가 없어요.", ephemeral=True)
         return
 
-    await finalize_admin_log(session, aborted=True, reason="응시자 포기")
-    cleanup_session(session)
+    async with session.transition_lock:
+        if not session.is_active():
+            await interaction.response.send_message("이미 종료된 퀴즈예요.", ephemeral=True)
+            return
+        await finalize_admin_log(session, aborted=True, reason="응시자 포기")
+        cleanup_session(session)
 
     # 남아있는 퀴즈 화면의 버튼 제거 시도 (실패해도 무방)
     if session.message:
@@ -428,10 +473,13 @@ async def give_up_cmd(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="타르코프퀴즈랭킹", description="타르코프 퀴즈 서버 랭킹을 확인합니다")
+@discord.app_commands.guild_only()
 async def leaderboard_cmd(interaction: discord.Interaction):
-    rows = await asyncio.to_thread(database.get_leaderboard, 10)
+    rows = await asyncio.to_thread(database.get_leaderboard, interaction.guild_id, 10)
     if not rows:
-        await interaction.response.send_message("아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!", ephemeral=True)
+        await interaction.response.send_message(
+            "아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!", ephemeral=True
+        )
         return
 
     embed = discord.Embed(title="🏆 타르코프 퀴즈 랭킹 TOP 10", color=discord.Color.gold())
@@ -439,7 +487,9 @@ async def leaderboard_cmd(interaction: discord.Interaction):
     lines = []
     for i, (username, best_score, attempts, correct, total) in enumerate(rows):
         prefix = medals[i] if i < 3 else f"{i + 1}."
-        lines.append(f"{prefix} **{username}** — {best_score}점 (정답 {correct}/{total}, {attempts}회 도전)")
+        lines.append(
+            f"{prefix} **{username}** — {best_score}점 (정답 {correct}/{total}, {attempts}회 도전)"
+        )
     embed.description = "\n".join(lines)
     await interaction.response.send_message(embed=embed)
 
@@ -447,8 +497,9 @@ async def leaderboard_cmd(interaction: discord.Interaction):
 class ResetConfirmView(discord.ui.View):
     """랭킹 초기화는 되돌릴 수 없으므로 확인 버튼을 한 번 거친다."""
 
-    def __init__(self, invoker_id: int):
+    def __init__(self, guild_id: int, invoker_id: int):
         super().__init__(timeout=30)
+        self.guild_id = guild_id
         self.invoker_id = invoker_id
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -457,7 +508,7 @@ class ResetConfirmView(discord.ui.View):
     @discord.ui.button(label="초기화 실행", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.stop()
-        deleted = await asyncio.to_thread(database.reset_leaderboard)
+        deleted = await asyncio.to_thread(database.reset_leaderboard, self.guild_id)
         log.info(f"랭킹 초기화: {interaction.user} (기록 {deleted}건 삭제)")
         await interaction.response.edit_message(
             content=f"🗑️ 랭킹이 초기화되었습니다. (응시 기록 {deleted}건 삭제)", view=None
@@ -469,7 +520,10 @@ class ResetConfirmView(discord.ui.View):
         await interaction.response.edit_message(content="초기화를 취소했어요.", view=None)
 
 
-@bot.tree.command(name="타르코프퀴즈랭킹초기화", description="[관리자 전용] 퀴즈 랭킹과 전체 응시 기록을 삭제합니다")
+@bot.tree.command(
+    name="타르코프퀴즈랭킹초기화",
+    description="[관리자 전용] 퀴즈 랭킹과 전체 응시 기록을 삭제합니다",
+)
 @discord.app_commands.default_permissions(administrator=True)
 @discord.app_commands.guild_only()
 async def reset_leaderboard_cmd(interaction: discord.Interaction):
@@ -486,14 +540,17 @@ async def reset_leaderboard_cmd(interaction: discord.Interaction):
 
     await interaction.response.send_message(
         "⚠️ **전체 응시 기록과 랭킹이 삭제됩니다.** 되돌릴 수 없어요. 진행할까요?",
-        view=ResetConfirmView(interaction.user.id),
+        view=ResetConfirmView(interaction.guild_id, interaction.user.id),
         ephemeral=True,
     )
 
 
 @bot.tree.command(name="타르코프퀴즈기록", description="내 타르코프 퀴즈 기록을 확인합니다")
+@discord.app_commands.guild_only()
 async def my_record_cmd(interaction: discord.Interaction):
-    row = await asyncio.to_thread(database.get_user_record, interaction.user.id)
+    row = await asyncio.to_thread(
+        database.get_user_record, interaction.guild_id, interaction.user.id
+    )
     if not row:
         await interaction.response.send_message("아직 퀴즈 기록이 없어요!", ephemeral=True)
         return

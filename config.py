@@ -18,6 +18,7 @@ def _project_path(env_name: str, default_name: str) -> Path:
         path = BASE_DIR / path
     return path.resolve()
 
+
 # 디스코드 봇 토큰 (.env 파일에서 로드)
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -28,7 +29,9 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 try:
     ADMIN_LOG_CHANNEL_ID = int(os.getenv("ADMIN_LOG_CHANNEL_ID", "0"))
 except ValueError:
-    print("[경고] ADMIN_LOG_CHANNEL_ID가 올바른 숫자가 아닙니다. 관리자 로그 기능을 비활성화합니다.")
+    print(
+        "[경고] ADMIN_LOG_CHANNEL_ID가 올바른 숫자가 아닙니다. 관리자 로그 기능을 비활성화합니다."
+    )
     ADMIN_LOG_CHANNEL_ID = 0
 
 # 퀴즈 시작을 허용할 채널 ID
@@ -68,6 +71,28 @@ SESSION_COUNTS = {
 }
 
 TOTAL_QUESTIONS = sum(SESSION_COUNTS.values())
+
+
+def validate_settings() -> None:
+    """서로 의존하는 퀴즈 설정을 시작 전에 검증한다."""
+    difficulties = set(SESSION_COUNTS)
+    if set(POINTS) != difficulties or set(DIFFICULTY_LABEL) != difficulties:
+        raise ValueError("POINTS, DIFFICULTY_LABEL, SESSION_COUNTS의 난이도 키가 같아야 합니다.")
+    if (
+        not isinstance(QUESTION_TIME_LIMIT, int)
+        or isinstance(QUESTION_TIME_LIMIT, bool)
+        or QUESTION_TIME_LIMIT <= 0
+    ):
+        raise ValueError("QUESTION_TIME_LIMIT은 1 이상의 정수여야 합니다.")
+    for difficulty, count in SESSION_COUNTS.items():
+        if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+            raise ValueError(f"SESSION_COUNTS['{difficulty}']는 1 이상의 정수여야 합니다.")
+        points = POINTS[difficulty]
+        if not isinstance(points, int) or isinstance(points, bool) or points < 0:
+            raise ValueError(f"POINTS['{difficulty}']는 0 이상의 정수여야 합니다.")
+
+
+validate_settings()
 
 # 데이터베이스 파일 경로
 DB_PATH = _project_path("QUIZ_DB_PATH", "quiz_leaderboard.db")
