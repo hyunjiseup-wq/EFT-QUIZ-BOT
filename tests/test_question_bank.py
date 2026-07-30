@@ -6,6 +6,7 @@ from pathlib import Path
 
 from question_bank import (
     QuestionDataError,
+    filter_questions_for_mode,
     group_by_difficulty,
     load_questions,
     select_session_questions,
@@ -26,6 +27,42 @@ def make_question(qid: int, difficulty: str = "general") -> dict:
 
 
 class QuestionBankTests(unittest.TestCase):
+    def test_mode_filter_includes_common_and_requested_mode_only(self):
+        common = make_question(1)
+        pvp = {**make_question(2), "mode": "pvp"}
+        pve = {**make_question(3), "mode": "pve"}
+
+        self.assertEqual(
+            [q["id"] for q in filter_questions_for_mode([common, pvp, pve], "pvp")],
+            [1, 2],
+        )
+        self.assertEqual(
+            [q["id"] for q in filter_questions_for_mode([common, pvp, pve], "pve")],
+            [1, 3],
+        )
+
+    def test_validation_rejects_unknown_mode(self):
+        question = {**make_question(1), "mode": "arena"}
+
+        errors = validate_questions([question], {"general": 1})
+
+        self.assertTrue(any("알 수 없는 mode" in error for error in errors))
+
+    def test_validation_reports_shortage_in_one_mode_only(self):
+        # 전체 2문제로 수량은 충족되지만, PvE 풀에는 1문제뿐이라 PvE만 부족해야 한다.
+        questions = [
+            {**make_question(1), "mode": "pvp"},
+            {**make_question(2), "mode": "common"},
+        ]
+
+        errors = validate_questions(questions, {"general": 2})
+
+        self.assertTrue(any("PVE 모드 난이도 'general' 문제 부족" in error for error in errors))
+        self.assertFalse(any("PVP 모드" in error for error in errors))
+        self.assertFalse(
+            any(error.startswith("난이도 'general' 문제 부족") for error in errors)
+        )
+
     def test_valid_questions_have_no_errors(self):
         questions = [make_question(1), make_question(2)]
 

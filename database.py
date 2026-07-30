@@ -20,6 +20,7 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS leaderboard (
                 guild_id TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'legacy',
                 user_id TEXT NOT NULL,
                 username TEXT NOT NULL,
                 best_score INTEGER NOT NULL DEFAULT 0,
@@ -29,7 +30,7 @@ def init_db():
                 attempts INTEGER NOT NULL DEFAULT 0,
                 last_played_at TEXT,
                 best_achieved_at TEXT,
-                PRIMARY KEY (guild_id, user_id)
+                PRIMARY KEY (guild_id, mode, user_id)
             )
             """
         )
@@ -57,10 +58,54 @@ def init_db():
         current_columns = {row[1] for row in conn.execute("PRAGMA table_info(leaderboard)")}
         if "best_achieved_at" not in current_columns:
             conn.execute("ALTER TABLE leaderboard ADD COLUMN best_achieved_at TEXT")
+
+        current_columns = {row[1] for row in conn.execute("PRAGMA table_info(leaderboard)")}
+        if "mode" not in current_columns:
+            # 모드 분리 이전 기록은 삭제하지 않고 legacy 영역에 보존한다.
+            conn.execute("ALTER TABLE leaderboard RENAME TO leaderboard_without_mode")
+            conn.execute(
+                """
+                CREATE TABLE leaderboard (
+                    guild_id TEXT NOT NULL,
+                    mode TEXT NOT NULL DEFAULT 'legacy',
+                    user_id TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    best_score INTEGER NOT NULL DEFAULT 0,
+                    last_score INTEGER NOT NULL DEFAULT 0,
+                    total_correct INTEGER NOT NULL DEFAULT 0,
+                    total_questions INTEGER NOT NULL DEFAULT 0,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    last_played_at TEXT,
+                    best_achieved_at TEXT,
+                    PRIMARY KEY (guild_id, mode, user_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO leaderboard
+                    (guild_id, mode, user_id, username, best_score, last_score,
+                     total_correct, total_questions, attempts, last_played_at,
+                     best_achieved_at)
+                SELECT guild_id, 'legacy', user_id, username, best_score, last_score,
+                       total_correct, total_questions, attempts, last_played_at,
+                       best_achieved_at
+                FROM leaderboard_without_mode
+                """
+            )
+            conn.execute("DROP TABLE leaderboard_without_mode")
         conn.commit()
 
 
-def record_result(guild_id: int, user_id: int, username: str, score: int, correct: int, total: int):
+def record_result(
+    guild_id: int,
+    mode: str,
+    user_id: int,
+    username: str,
+    score: int,
+    correct: int,
+    total: int,
+):
     """퀴즈 완료 시 결과를 저장한다.
 
     - best_score: 최고 기록만 유지
@@ -72,10 +117,10 @@ def record_result(guild_id: int, user_id: int, username: str, score: int, correc
         conn.execute(
             """
             INSERT INTO leaderboard
-                (guild_id, user_id, username, best_score, last_score, total_correct,
+                (guild_id, mode, user_id, username, best_score, last_score, total_correct,
                  total_questions, attempts, last_played_at, best_achieved_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-            ON CONFLICT(guild_id, user_id) DO UPDATE SET
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            ON CONFLICT(guild_id, mode, user_id) DO UPDATE SET
                 username = excluded.username,
                 best_score = MAX(best_score, excluded.best_score),
                 best_achieved_at = CASE
@@ -88,41 +133,58 @@ def record_result(guild_id: int, user_id: int, username: str, score: int, correc
                 attempts = attempts + 1,
                 last_played_at = excluded.last_played_at
             """,
-            (str(guild_id), str(user_id), username, score, score, correct, total, now, now),
+            (
+                str(guild_id),
+                mode,
+                str(user_id),
+                username,
+                score,
+                score,
+                correct,
+                total,
+                now,
+                now,
+            ),
         )
         conn.commit()
 
 
-def get_leaderboard(guild_id: int, limit: int = 10):
+def get_leaderboard(guild_id: int, mode: str, limit: int = 10):
     with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
         cur = conn.execute(
             """
             SELECT username, best_score, attempts, total_correct, total_questions
             FROM leaderboard
-            WHERE guild_id = ?
+            WHERE guild_id = ? AND mode = ?
             ORDER BY best_score DESC, best_achieved_at ASC
             LIMIT ?
             """,
-            (str(guild_id), limit),
+            (str(guild_id), mode, limit),
         )
         return cur.fetchall()
 
 
-def reset_leaderboard(guild_id: int) -> int:
+def reset_leaderboard(guild_id: int, mode: str | None = None) -> int:
     """해당 서버의 응시 기록을 삭제하고 삭제된 행 수를 반환한다."""
     with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
-        cur = conn.execute("DELETE FROM leaderboard WHERE guild_id = ?", (str(guild_id),))
+        if mode is None:
+            cur = conn.execute("DELETE FROM leaderboard WHERE guild_id = ?", (str(guild_id),))
+        else:
+            cur = conn.execute(
+                "DELETE FROM leaderboard WHERE guild_id = ? AND mode = ?",
+                (str(guild_id), mode),
+            )
         conn.commit()
         return cur.rowcount
 
 
-def get_user_record(guild_id: int, user_id: int):
+def get_user_record(guild_id: int, mode: str, user_id: int):
     with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
         cur = conn.execute(
             """
             SELECT username, best_score, last_score, attempts, total_correct, total_questions
-            FROM leaderboard WHERE guild_id = ? AND user_id = ?
+            FROM leaderboard WHERE guild_id = ? AND mode = ? AND user_id = ?
             """,
-            (str(guild_id), str(user_id)),
+            (str(guild_id), mode, str(user_id)),
         )
         return cur.fetchone()

@@ -3,7 +3,7 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **General 87 · Medium 85 · Hard 111 · Expert 80 (363 questions total)**.
+It uses a 4-choice button UI, and `questions.json` currently holds **375 questions**.
 Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -12,7 +12,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 ## How it works
 
-- `/타르코프퀴즈시작` (start-quiz): Starts the quiz with an ephemeral message visible only to the person who ran the command.
+- `/pvp퀴즈`: Starts a quiz using common questions plus PvP-only questions.
+- `/pve퀴즈`: Starts a quiz using common questions plus PvE-only questions.
+  The quiz runs in an ephemeral message visible only to the person who ran the command.
   If several people run the command in the same channel at once, each only sees their own screen — no one sees anyone else's progress.
   Setting a channel ID in `.env`'s `QUIZ_CHANNEL_ID` restricts quiz starts to **that channel only**
   (attempts in other channels get redirected there; `0` or unset allows all channels).
@@ -22,12 +24,14 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   Correct/incorrect history and per-difficulty breakdowns are only visible in the admin spectator log.
 - When all questions are answered, the final score and correct-answer count are shown, and the record is saved.
 - `/타르코프퀴즈포기` (give-up): Abandons the quiz in progress (not saved). Use this to quit partway through and start over.
-- `/타르코프퀴즈랭킹` (ranking): Current server's TOP 10 (by best score, public message)
-- `/타르코프퀴즈기록` (my-record): Check your own best/most recent score (ephemeral)
+- `/pvp퀴즈랭킹`, `/pve퀴즈랭킹`: Mode-specific server TOP 10 (by best score, public message)
+- `/pvp퀴즈기록`, `/pve퀴즈기록`: Check your own mode-specific best/most recent score (ephemeral)
 - `/타르코프퀴즈랭킹초기화` (reset-ranking): **Server admin only.** Deletes all records and rankings for the server (behind a confirmation button, cannot be undone).
   Regular users don't see this command at all.
 
-Rankings and personal records are isolated per Discord server. On first run against a database created
+Rankings and personal records are isolated by Discord server and PvP/PvE mode. Records created before
+mode separation are preserved under `mode=legacy` and do not appear in the new mode rankings.
+On first run against a database created
 before per-server isolation existed, old rows aren't deleted — they're automatically migrated into a
 legacy area with `guild_id=0`. Since the old database never stored a server ID, those records won't show
 up in any server's actual ranking.
@@ -37,7 +41,8 @@ up in any server's actual ranking.
 Discord won't let a bot edit an ephemeral message on its own once roughly 15 minutes have passed since the
 original interaction. Pressing a button creates a fresh interaction, so that's fine — but **if a session
 sits idle long enough that timeouts keep stacking up**, message updates can start failing past the
-15-minute mark. When that happens the bot auto-cleans the session, so just start over with `/타르코프퀴즈시작`.
+15-minute mark. When that happens the bot auto-cleans the session, so just start over with
+`/pvp퀴즈` or `/pve퀴즈`.
 
 ## ⚠️ A structural Discord limitation — admin spectating
 
@@ -97,6 +102,7 @@ Add entries to `questions.json` in the following format.
 ```json
 {
   "id": 31,
+  "mode": "common",
   "difficulty": "medium",
   "category": "무기",
   "question": "Question text",
@@ -105,6 +111,10 @@ Add entries to `questions.json` in the following format.
   "explanation": "Explanation of the correct answer (never shown to players; used in the spectator log's wrong-answer record)"
 }
 ```
+
+`mode` may be `common`, `pvp`, or `pve`; if omitted, it defaults to `common`.
+PvP quizzes draw from `common+pvp`, while PvE quizzes draw from `common+pve`.
+When a rule differs by profile or season, state the applicable profile, season, or patch in the question.
 
 `difficulty` is one of `general` / `medium` / `hard` / `expert`, and point values are adjusted in
 `config.py`'s `POINTS` dictionary.

@@ -9,6 +9,7 @@ from discord.ext import commands
 import config
 import database
 from question_bank import (
+    filter_questions_for_mode,
     group_by_difficulty,
     load_validated_questions,
     select_session_questions,
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tarkov_quiz")
 
 intents = discord.Intents.default()
+ADMIN_LOG_TIMEOUT = 2.0
 
 
 class QuizBot(commands.Bot):
@@ -33,12 +35,16 @@ bot = QuizBot(command_prefix="!", intents=intents)
 ALL_QUESTIONS = load_validated_questions(config.QUESTIONS_PATH, config.SESSION_COUNTS)
 
 # 난이도별로 문제를 미리 그룹화 (매 세션마다 이 풀에서 랜덤 추출)
-QUESTIONS_BY_DIFFICULTY = group_by_difficulty(ALL_QUESTIONS)
+QUESTIONS_BY_MODE = {
+    mode: group_by_difficulty(filter_questions_for_mode(ALL_QUESTIONS, mode))
+    for mode in ("pvp", "pve")
+}
+MODE_LABELS = {"pvp": "PvP", "pve": "PvE"}
 
 
-def build_session_questions() -> list:
+def build_session_questions(mode: str) -> list:
     """난이도별로 config.SESSION_COUNTS 개수만큼 문제 풀에서 랜덤 추출 후, 전체 순서를 섞어 반환."""
-    return select_session_questions(QUESTIONS_BY_DIFFICULTY, config.SESSION_COUNTS)
+    return select_session_questions(QUESTIONS_BY_MODE[mode], config.SESSION_COUNTS)
 
 
 # (guild_id, user_id) -> QuizSession
@@ -47,6 +53,7 @@ active_sessions: dict[tuple[int, int], "QuizSession"] = {}
 
 @dataclass
 class QuizSession:
+    mode: str
     guild_id: int
     user_id: int
     username: str
@@ -99,7 +106,7 @@ def build_question_embed(session: QuizSession) -> discord.Embed:
 
     # 난이도/배점은 응시자에게 비공개 (관리자 관전 로그에서만 표시)
     embed = discord.Embed(
-        title=f"문제 {session.index + 1} / {session.total}",
+        title=f"{MODE_LABELS[session.mode]} 문제 {session.index + 1} / {session.total}",
         description=q["question"],
         color=discord.Color.dark_gold(),
     )
@@ -146,6 +153,9 @@ class AnswerView(discord.ui.View):
         return True
 
     async def handle_answer(self, interaction: discord.Interaction, display_index: int):
+        # 관리자 로그 API가 느리더라도 Discord의 3초 인터랙션 응답 제한을 넘기지 않는다.
+        # defer에 실패한 경우에는 뷰의 제한시간 처리가 계속될 수 있도록 stop보다 먼저 호출한다.
+        await interaction.response.defer()
         # 답변을 받는 즉시 뷰를 정지시켜 on_timeout이 뒤늦게 실행되어
         # 문제가 이중으로 진행되는 것을 차단
         self.stop()
@@ -153,7 +163,6 @@ class AnswerView(discord.ui.View):
         session = self.session
         async with session.transition_lock:
             if not session.is_active() or session.index != self.question_index:
-                await interaction.response.defer()
                 return
 
             q = session.current_question
@@ -199,7 +208,10 @@ async def edit_session_message(session: QuizSession, interaction, **kwargs) -> b
     """응시자 세션 메시지를 수정한다. 실패(토큰 만료 등) 시 False를 반환하고 세션을 정리한다."""
     try:
         if interaction is not None:
-            await interaction.response.edit_message(**kwargs)
+            if interaction.response.is_done():
+                await interaction.edit_original_response(**kwargs)
+            else:
+                await interaction.response.edit_message(**kwargs)
             session.message = await interaction.original_response()
         elif session.message:
             await session.message.edit(**kwargs)
@@ -224,6 +236,7 @@ async def advance_or_finish(interaction, session: QuizSession, result_text: str)
             await asyncio.to_thread(
                 database.record_result,
                 session.guild_id,
+                session.mode,
                 session.user_id,
                 session.username,
                 session.score,
@@ -269,8 +282,11 @@ def build_final_embed(session: QuizSession) -> discord.Embed:
         color=discord.Color.green(),
     )
     embed.add_field(name="총점", value=f"{session.score}점", inline=True)
+    embed.add_field(name="모드", value=MODE_LABELS[session.mode], inline=True)
     embed.add_field(name="정답 수", value=f"{session.correct_count} / {session.total}", inline=True)
-    embed.set_footer(text="/타르코프퀴즈랭킹 명령어로 서버 랭킹을 확인해보세요.")
+    embed.set_footer(
+        text=f"/{session.mode}퀴즈랭킹 명령어로 서버 랭킹을 확인해보세요."
+    )
     return embed
 
 
@@ -305,7 +321,7 @@ def build_admin_embed(
         lines.pop(0)
         description = "(이전 기록 생략)\n" + "\n".join(lines)
     embed = discord.Embed(
-        title=f"🎮 {session.username}",
+        title=f"🎮 [{MODE_LABELS[session.mode]}] {session.username}",
         description=description if lines else "(진행 기록 없음)",
         color=color,
     )
@@ -361,7 +377,13 @@ async def update_admin_log(
             session.admin_log_lines.append(f"　└ 💡 {explanation[:150]}")
     embed = build_admin_embed(session, "🟡 진행 중", discord.Color.blurple())
     try:
-        await session.admin_log_message.edit(embed=embed)
+        await asyncio.wait_for(
+            session.admin_log_message.edit(embed=embed),
+            timeout=ADMIN_LOG_TIMEOUT,
+        )
+    except TimeoutError:
+        log.warning("관리자 로그 갱신 시간 초과; 퀴즈 진행은 계속합니다.")
+        session.admin_log_message = None
     except discord.HTTPException as e:
         log.warning(f"관리자 로그 갱신 실패: {e}")
         session.admin_log_message = None  # 이후 갱신 시도 중단
@@ -394,14 +416,7 @@ async def on_ready():
     log.info(f"{bot.user}로 로그인 완료")
 
 
-@bot.tree.command(
-    name="타르코프퀴즈시작",
-    description=(
-        f"이스케이프 프롬 타르코프 지식 퀴즈를 시작합니다 ({config.TOTAL_QUESTIONS}문제, 객관식)"
-    ),
-)
-@discord.app_commands.guild_only()
-async def start_quiz(interaction: discord.Interaction):
+async def start_quiz(interaction: discord.Interaction, mode: str):
     if config.QUIZ_CHANNEL_ID and interaction.channel_id != config.QUIZ_CHANNEL_ID:
         await interaction.response.send_message(
             f"퀴즈는 <#{config.QUIZ_CHANNEL_ID}> 채널에서만 시작할 수 있어요!",
@@ -418,9 +433,10 @@ async def start_quiz(interaction: discord.Interaction):
         )
         return
 
-    questions = build_session_questions()
+    questions = build_session_questions(mode)
 
     session = QuizSession(
+        mode=mode,
         guild_id=interaction.guild_id,
         user_id=interaction.user.id,
         username=interaction.user.display_name,
@@ -441,6 +457,24 @@ async def start_quiz(interaction: discord.Interaction):
         raise
 
     await start_admin_log(interaction.client, session)
+
+
+@bot.tree.command(
+    name="pvp퀴즈",
+    description=f"PvP 기준 타르코프 퀴즈를 시작합니다 ({config.TOTAL_QUESTIONS}문제)",
+)
+@discord.app_commands.guild_only()
+async def start_pvp_quiz(interaction: discord.Interaction):
+    await start_quiz(interaction, "pvp")
+
+
+@bot.tree.command(
+    name="pve퀴즈",
+    description=f"PvE Zone 기준 타르코프 퀴즈를 시작합니다 ({config.TOTAL_QUESTIONS}문제)",
+)
+@discord.app_commands.guild_only()
+async def start_pve_quiz(interaction: discord.Interaction):
+    await start_quiz(interaction, "pve")
 
 
 @bot.tree.command(
@@ -468,30 +502,63 @@ async def give_up_cmd(interaction: discord.Interaction):
             pass
 
     await interaction.response.send_message(
-        "퀴즈를 포기했어요. `/타르코프퀴즈시작`으로 다시 도전할 수 있어요!", ephemeral=True
+        "퀴즈를 포기했어요. `/pvp퀴즈` 또는 `/pve퀴즈`로 다시 도전할 수 있어요!",
+        ephemeral=True,
     )
 
 
-@bot.tree.command(name="타르코프퀴즈랭킹", description="타르코프 퀴즈 서버 랭킹을 확인합니다")
-@discord.app_commands.guild_only()
-async def leaderboard_cmd(interaction: discord.Interaction):
-    rows = await asyncio.to_thread(database.get_leaderboard, interaction.guild_id, 10)
+async def show_leaderboard(interaction: discord.Interaction, mode: str):
+    rows = await asyncio.to_thread(
+        database.get_leaderboard, interaction.guild_id, mode, 10
+    )
     if not rows:
         await interaction.response.send_message(
             "아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!", ephemeral=True
         )
         return
 
-    embed = discord.Embed(title="🏆 타르코프 퀴즈 랭킹 TOP 10", color=discord.Color.gold())
+    embed = discord.Embed(
+        title=f"🏆 {MODE_LABELS[mode]} 퀴즈 랭킹 TOP 10",
+        color=discord.Color.gold(),
+    )
     medals = ["🥇", "🥈", "🥉"]
     lines = []
     for i, (username, best_score, attempts, correct, total) in enumerate(rows):
         prefix = medals[i] if i < 3 else f"{i + 1}."
         lines.append(
-            f"{prefix} **{username}** — {best_score}점 (정답 {correct}/{total}, {attempts}회 도전)"
+            format_leaderboard_line(
+                prefix, username, best_score, attempts, correct, total
+            )
         )
     embed.description = "\n".join(lines)
     await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="pvp퀴즈랭킹", description="PvP 퀴즈 서버 랭킹을 확인합니다")
+@discord.app_commands.guild_only()
+async def pvp_leaderboard_cmd(interaction: discord.Interaction):
+    await show_leaderboard(interaction, "pvp")
+
+
+@bot.tree.command(name="pve퀴즈랭킹", description="PvE 퀴즈 서버 랭킹을 확인합니다")
+@discord.app_commands.guild_only()
+async def pve_leaderboard_cmd(interaction: discord.Interaction):
+    await show_leaderboard(interaction, "pve")
+
+
+def format_leaderboard_line(
+    prefix: str,
+    username: str,
+    best_score: int,
+    attempts: int,
+    total_correct: int,
+    total_questions: int,
+) -> str:
+    """최고 점수와 전체 도전 누적 통계를 혼동하지 않도록 랭킹 한 줄을 만든다."""
+    return (
+        f"{prefix} **{username}** — 최고 {best_score}점 "
+        f"(누적 정답 {total_correct}/{total_questions}, {attempts}회 도전)"
+    )
 
 
 class ResetConfirmView(discord.ui.View):
@@ -545,22 +612,35 @@ async def reset_leaderboard_cmd(interaction: discord.Interaction):
     )
 
 
-@bot.tree.command(name="타르코프퀴즈기록", description="내 타르코프 퀴즈 기록을 확인합니다")
-@discord.app_commands.guild_only()
-async def my_record_cmd(interaction: discord.Interaction):
+async def show_my_record(interaction: discord.Interaction, mode: str):
     row = await asyncio.to_thread(
-        database.get_user_record, interaction.guild_id, interaction.user.id
+        database.get_user_record, interaction.guild_id, mode, interaction.user.id
     )
     if not row:
         await interaction.response.send_message("아직 퀴즈 기록이 없어요!", ephemeral=True)
         return
     username, best_score, last_score, attempts, correct, total = row
-    embed = discord.Embed(title=f"{username}님의 기록", color=discord.Color.blue())
+    embed = discord.Embed(
+        title=f"{username}님의 {MODE_LABELS[mode]} 기록",
+        color=discord.Color.blue(),
+    )
     embed.add_field(name="최고 점수", value=str(best_score))
     embed.add_field(name="최근 점수", value=str(last_score))
     embed.add_field(name="도전 횟수", value=str(attempts))
     embed.add_field(name="누적 정답", value=f"{correct}/{total}")
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="pvp퀴즈기록", description="내 PvP 퀴즈 기록을 확인합니다")
+@discord.app_commands.guild_only()
+async def pvp_record_cmd(interaction: discord.Interaction):
+    await show_my_record(interaction, "pvp")
+
+
+@bot.tree.command(name="pve퀴즈기록", description="내 PvE 퀴즈 기록을 확인합니다")
+@discord.app_commands.guild_only()
+async def pve_record_cmd(interaction: discord.Interaction):
+    await show_my_record(interaction, "pve")
 
 
 if __name__ == "__main__":

@@ -14,11 +14,11 @@ class DatabaseTests(unittest.TestCase):
             path = Path(directory) / "leaderboard.db"
             with patch.object(database, "DB_PATH", path):
                 database.init_db()
-                database.record_result(10, 1, "테스터", 100, 4, 5)
-                database.record_result(10, 1, "테스터", 80, 3, 5)
+                database.record_result(10, "pvp", 1, "테스터", 100, 4, 5)
+                database.record_result(10, "pvp", 1, "테스터", 80, 3, 5)
 
                 self.assertEqual(
-                    database.get_user_record(10, 1),
+                    database.get_user_record(10, "pvp", 1),
                     ("테스터", 100, 80, 2, 7, 10),
                 )
 
@@ -27,14 +27,27 @@ class DatabaseTests(unittest.TestCase):
             path = Path(directory) / "leaderboard.db"
             with patch.object(database, "DB_PATH", path):
                 database.init_db()
-                database.record_result(10, 1, "서버10", 100, 4, 5)
-                database.record_result(20, 1, "서버20", 80, 3, 5)
+                database.record_result(10, "pvp", 1, "서버10", 100, 4, 5)
+                database.record_result(20, "pvp", 1, "서버20", 80, 3, 5)
 
-                self.assertEqual(database.get_user_record(10, 1)[0], "서버10")
-                self.assertEqual(database.get_user_record(20, 1)[0], "서버20")
+                self.assertEqual(database.get_user_record(10, "pvp", 1)[0], "서버10")
+                self.assertEqual(database.get_user_record(20, "pvp", 1)[0], "서버20")
                 self.assertEqual(database.reset_leaderboard(10), 1)
-                self.assertIsNone(database.get_user_record(10, 1))
-                self.assertIsNotNone(database.get_user_record(20, 1))
+                self.assertIsNone(database.get_user_record(10, "pvp", 1))
+                self.assertIsNotNone(database.get_user_record(20, "pvp", 1))
+
+    def test_records_are_isolated_by_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "테스터", 100, 4, 5)
+                database.record_result(10, "pve", 1, "테스터", 80, 3, 5)
+
+                self.assertEqual(database.get_user_record(10, "pvp", 1)[1], 100)
+                self.assertEqual(database.get_user_record(10, "pve", 1)[1], 80)
+                self.assertEqual(len(database.get_leaderboard(10, "pvp")), 1)
+                self.assertEqual(len(database.get_leaderboard(10, "pve")), 1)
 
     def test_init_db_migrates_legacy_schema(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -70,11 +83,12 @@ class DatabaseTests(unittest.TestCase):
             with closing(sqlite3.connect(path)) as connection:
                 columns = {row[1] for row in connection.execute("PRAGMA table_info(leaderboard)")}
                 legacy = connection.execute(
-                    "SELECT guild_id, best_achieved_at FROM leaderboard"
+                    "SELECT guild_id, mode, best_achieved_at FROM leaderboard"
                 ).fetchone()
             self.assertIn("guild_id", columns)
+            self.assertIn("mode", columns)
             self.assertIn("best_achieved_at", columns)
-            self.assertEqual(legacy, ("0", "2026-01-01T00:00:00+00:00"))
+            self.assertEqual(legacy, ("0", "legacy", "2026-01-01T00:00:00+00:00"))
 
 
 if __name__ == "__main__":
