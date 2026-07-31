@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import random
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord.ext import commands
@@ -26,6 +28,10 @@ class QuizBot(commands.Bot):
     async def setup_hook(self):
         # on_ready는 재연결 시마다 반복될 수 있으므로 명령어 동기화는 여기서 1회만 수행한다.
         database.init_db()
+        # timeout=None + 고정 custom_id를 사용하는 뷰를 등록하면 봇 재시작 뒤에도
+        # 기존 대시보드 메시지의 버튼 인터랙션을 계속 받을 수 있다.
+        self.add_view(QuizDashboardView())
+        self.add_view(SupervisorDashboardView())
         synced = await self.tree.sync()
         log.info(f"슬래시 명령어 {len(synced)}개 동기화 완료")
 
@@ -40,11 +46,360 @@ QUESTIONS_BY_MODE = {
     for mode in ("pvp", "pve")
 }
 MODE_LABELS = {"pvp": "PvP", "pve": "PvE"}
+DASHBOARD_MARKER = "타르코프 퀴즈 대시보드 · v1"
+SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v1"
 
 
 def build_session_questions(mode: str) -> list:
     """난이도별로 config.SESSION_COUNTS 개수만큼 문제 풀에서 랜덤 추출 후, 전체 순서를 섞어 반환."""
     return select_session_questions(QUESTIONS_BY_MODE[mode], config.SESSION_COUNTS)
+
+
+def build_dashboard_embed() -> discord.Embed:
+    """퀴즈 채널에 고정해 둘 공개 대시보드 메시지를 만든다."""
+    embed = discord.Embed(
+        title="🎯 타르코프 지식 퀴즈",
+        description=(
+            "플레이할 모드를 선택하세요. 퀴즈 화면은 **본인에게만** 보이며,\n"
+            "문제마다 제한시간 안에 보기 버튼을 눌러 답하면 됩니다."
+        ),
+        color=discord.Color.dark_teal(),
+    )
+    embed.add_field(
+        name="퀴즈 구성",
+        value=(
+            f"전체 문제 풀 **{len(ALL_QUESTIONS)}문제** "
+            f"(PvP {sum(len(pool) for pool in QUESTIONS_BY_MODE['pvp'].values())} · "
+            f"PvE {sum(len(pool) for pool in QUESTIONS_BY_MODE['pve'].values())}) · "
+            f"1회 **{config.TOTAL_QUESTIONS}문제** · "
+            f"문제당 **{config.QUESTION_TIME_LIMIT}초**"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="모드 안내",
+        value=(
+            "**PvP** — 공통 + 현재 PvP로 분류된 시즌 문항\n"
+            "**PvE** — 공통 + PvE Zone 전용 문제"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="처음이신가요?",
+        value="아래 **튜토리얼** 버튼에서 진행 방식과 주의사항을 확인하세요.",
+        inline=False,
+    )
+    embed.set_footer(text=DASHBOARD_MARKER)
+    return embed
+
+
+def build_tutorial_embed() -> discord.Embed:
+    """대시보드에서 본인에게만 보여줄 간단한 이용 안내."""
+    embed = discord.Embed(
+        title="📘 타르코프 퀴즈 튜토리얼",
+        description="대시보드에서 모드를 고르면 즉시 개인 퀴즈가 시작됩니다.",
+        color=discord.Color.blurple(),
+    )
+    embed.add_field(
+        name="1. 모드 선택",
+        value=(
+            "**PvP 퀴즈**는 공통 지식과 현재 PvP로 분류된 시즌 문항을,\n"
+            "**PvE 퀴즈**는 공통 지식과 PvE Zone 전용 문제를 출제합니다."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="2. 문제 풀이",
+        value=(
+            f"한 번에 {config.TOTAL_QUESTIONS}문제가 출제되며 문제당 "
+            f"{config.QUESTION_TIME_LIMIT}초입니다. 시간 초과는 오답 처리됩니다."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="3. 결과와 정답",
+        value=(
+            "진행 중에는 정오답·점수·정답을 공개하지 않습니다. "
+            "모든 문제를 풀면 최종 점수와 정답 수가 저장됩니다."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="4. 중단·기록 확인",
+        value=(
+            "중단하려면 `/타르코프퀴즈포기`, 개인 기록은 `/pvp퀴즈기록` 또는 "
+            "`/pve퀴즈기록`을 사용하세요. 포기한 퀴즈는 기록되지 않습니다."
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="튜토리얼은 본인에게만 표시됩니다.")
+    return embed
+
+
+def build_supervisor_dashboard_embed() -> discord.Embed:
+    """감독 채널에 고정해 둘 관리자 전용 대시보드."""
+    embed = discord.Embed(
+        title="🛰️ 타르코프 퀴즈 감독 대시보드",
+        description=(
+            "참가 현황과 랭킹을 확인하고 히든 상품 후보를 검토하는 관리자용 패널입니다.\n"
+            "응시자의 문제별 정오답은 이 채널에 생성되는 관전 로그에서 확인하세요."
+        ),
+        color=discord.Color.dark_purple(),
+    )
+    embed.add_field(
+        name="공개 운영 현황",
+        value="서버 참가자·완주 횟수, PvP/PvE 랭킹, 현재 활성 세션",
+        inline=False,
+    )
+    embed.add_field(
+        name="히든 상품 검토",
+        value=(
+            "최근 30일 기준 최다 완주 · 참여 일수 · 성장 · 언더독 · "
+            "PvP/PvE 올라운더 후보"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="권한",
+        value="아래 버튼은 서버 관리자만 사용할 수 있습니다.",
+        inline=False,
+    )
+    embed.set_footer(text=SUPERVISOR_DASHBOARD_MARKER)
+    return embed
+
+
+async def report_interaction_error(
+    interaction: discord.Interaction,
+    error: Exception,
+    *,
+    context: str,
+):
+    """슬래시 명령과 영구 버튼에서 공통으로 사용하는 최종 오류 응답."""
+    original = getattr(error, "original", error)
+    error_id = str(interaction.id)[-8:]
+    log.error(
+        "Discord 인터랙션 처리 실패 (error_id=%s, context=%s, user=%s)",
+        error_id,
+        context,
+        interaction.user.id,
+        exc_info=(type(original), original, original.__traceback__),
+    )
+    message = (
+        "⚠️ 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. "
+        f"계속되면 관리자에게 오류 번호 `{error_id}`를 알려주세요."
+    )
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
+    except discord.HTTPException:
+        log.warning("Discord 오류 안내 메시지 전송 실패 (error_id=%s)", error_id)
+
+
+class QuizDashboardView(discord.ui.View):
+    """재시작 후에도 작동하는 공개 퀴즈 진입점."""
+
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ):
+        await report_interaction_error(
+            interaction,
+            error,
+            context=f"dashboard:{getattr(item, 'custom_id', 'unknown')}",
+        )
+
+    @discord.ui.button(
+        label="PvP 퀴즈 시작",
+        emoji="⚔️",
+        style=discord.ButtonStyle.danger,
+        custom_id="tarkov_quiz:pvp:start",
+        row=0,
+    )
+    async def start_pvp(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await start_quiz(interaction, "pvp")
+
+    @discord.ui.button(
+        label="PvE 퀴즈 시작",
+        emoji="🛡️",
+        style=discord.ButtonStyle.success,
+        custom_id="tarkov_quiz:pve:start",
+        row=0,
+    )
+    async def start_pve(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await start_quiz(interaction, "pve")
+
+    @discord.ui.button(
+        label="튜토리얼",
+        emoji="📘",
+        style=discord.ButtonStyle.primary,
+        custom_id="tarkov_quiz:tutorial",
+        row=0,
+    )
+    async def tutorial(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            embed=build_tutorial_embed(),
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="PvP 랭킹",
+        emoji="🏆",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:pvp:ranking",
+        row=1,
+    )
+    async def pvp_ranking(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await show_leaderboard(interaction, "pvp", ephemeral=True)
+
+    @discord.ui.button(
+        label="PvE 랭킹",
+        emoji="🏆",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:pve:ranking",
+        row=1,
+    )
+    async def pve_ranking(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await show_leaderboard(interaction, "pve", ephemeral=True)
+
+    @discord.ui.button(
+        label="내 PvP 기록",
+        emoji="📊",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:pvp:record",
+        row=1,
+    )
+    async def pvp_record(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_my_record(interaction, "pvp")
+
+    @discord.ui.button(
+        label="내 PvE 기록",
+        emoji="📊",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:pve:record",
+        row=1,
+    )
+    async def pve_record(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_my_record(interaction, "pve")
+
+
+class SupervisorDashboardView(discord.ui.View):
+    """감독 채널에서만 사용하는 관리자용 영구 대시보드."""
+
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        is_admin = (
+            interaction.guild
+            and isinstance(interaction.user, discord.Member)
+            and interaction.user.guild_permissions.administrator
+        )
+        if not is_admin:
+            await interaction.response.send_message(
+                "감독 대시보드는 서버 관리자만 사용할 수 있어요.",
+                ephemeral=True,
+            )
+            return False
+        if (
+            config.ADMIN_LOG_CHANNEL_ID
+            and interaction.channel_id != config.ADMIN_LOG_CHANNEL_ID
+        ):
+            await interaction.response.send_message(
+                f"감독 기능은 <#{config.ADMIN_LOG_CHANNEL_ID}> 채널에서만 사용할 수 있어요.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ):
+        await report_interaction_error(
+            interaction,
+            error,
+            context=f"supervisor:{getattr(item, 'custom_id', 'unknown')}",
+        )
+
+    @discord.ui.button(
+        label="참가 현황",
+        emoji="📈",
+        style=discord.ButtonStyle.primary,
+        custom_id="tarkov_quiz:supervisor:stats",
+        row=0,
+    )
+    async def participation(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await show_public_stats(interaction)
+
+    @discord.ui.button(
+        label="히든 후보 30일",
+        emoji="🎁",
+        style=discord.ButtonStyle.success,
+        custom_id="tarkov_quiz:supervisor:rewards",
+        row=0,
+    )
+    async def rewards(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_hidden_reward_candidates(interaction, 30)
+
+    @discord.ui.button(
+        label="활성 세션",
+        emoji="🎮",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:supervisor:sessions",
+        row=0,
+    )
+    async def sessions(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild_sessions = [
+            session
+            for session in active_sessions.values()
+            if session.guild_id == interaction.guild_id and session.is_active()
+        ]
+        pvp_count = sum(session.mode == "pvp" for session in guild_sessions)
+        pve_count = sum(session.mode == "pve" for session in guild_sessions)
+        await interaction.response.send_message(
+            f"현재 활성 세션 **{len(guild_sessions)}개** "
+            f"(PvP {pvp_count} · PvE {pve_count})",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="PvP 랭킹",
+        emoji="🏆",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:supervisor:pvp-ranking",
+        row=1,
+    )
+    async def pvp_ranking(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await show_leaderboard(interaction, "pvp", ephemeral=True)
+
+    @discord.ui.button(
+        label="PvE 랭킹",
+        emoji="🏆",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tarkov_quiz:supervisor:pve-ranking",
+        row=1,
+    )
+    async def pve_ranking(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await show_leaderboard(interaction, "pve", ephemeral=True)
 
 
 # (guild_id, user_id) -> QuizSession
@@ -62,6 +417,8 @@ class QuizSession:
     index: int = 0
     score: int = 0
     correct_count: int = 0
+    timed_out_count: int = 0
+    started_at_monotonic: float = field(default_factory=time.monotonic)
     per_difficulty: dict = field(default_factory=lambda: {d: [0, 0] for d in config.SESSION_COUNTS})
     message: discord.InteractionMessage = None  # 응시자용 ephemeral 원본 메시지 (edit용)
     current_shuffled_choices: list = None  # 보기 표시 순서 (원본 인덱스 배열)
@@ -198,6 +555,7 @@ class AnswerView(discord.ui.View):
             q = session.current_question
             diff = q["difficulty"]
             session.per_difficulty[diff][1] += 1
+            session.timed_out_count += 1
             result_text = build_result_text(timed_out=True)
 
             await update_admin_log(session, q, False, timed_out=True)
@@ -242,6 +600,8 @@ async def advance_or_finish(interaction, session: QuizSession, result_text: str)
                 session.score,
                 session.correct_count,
                 session.total,
+                timed_out_count=session.timed_out_count,
+                duration_seconds=time.monotonic() - session.started_at_monotonic,
             )
         except Exception:
             log.exception(
@@ -414,6 +774,8 @@ async def finalize_admin_log(session: QuizSession, aborted: bool, reason: str = 
 @bot.event
 async def on_ready():
     log.info(f"{bot.user}로 로그인 완료")
+    await ensure_configured_dashboard()
+    await ensure_supervisor_dashboard()
 
 
 async def start_quiz(interaction: discord.Interaction, mode: str):
@@ -507,13 +869,16 @@ async def give_up_cmd(interaction: discord.Interaction):
     )
 
 
-async def show_leaderboard(interaction: discord.Interaction, mode: str):
+async def show_leaderboard(
+    interaction: discord.Interaction, mode: str, *, ephemeral: bool = False
+):
+    await interaction.response.defer(ephemeral=ephemeral)
     rows = await asyncio.to_thread(
         database.get_leaderboard, interaction.guild_id, mode, 10
     )
     if not rows:
-        await interaction.response.send_message(
-            "아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!", ephemeral=True
+        await interaction.edit_original_response(
+            content="아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!"
         )
         return
 
@@ -531,7 +896,7 @@ async def show_leaderboard(interaction: discord.Interaction, mode: str):
             )
         )
     embed.description = "\n".join(lines)
-    await interaction.response.send_message(embed=embed)
+    await interaction.edit_original_response(embed=embed)
 
 
 @bot.tree.command(name="pvp퀴즈랭킹", description="PvP 퀴즈 서버 랭킹을 확인합니다")
@@ -544,6 +909,435 @@ async def pvp_leaderboard_cmd(interaction: discord.Interaction):
 @discord.app_commands.guild_only()
 async def pve_leaderboard_cmd(interaction: discord.Interaction):
     await show_leaderboard(interaction, "pve")
+
+
+def build_public_stats_embed(stats: dict) -> discord.Embed:
+    embed = discord.Embed(
+        title="📈 타르코프 퀴즈 참가 현황",
+        description="서버의 PvP·PvE 퀴즈 누적 완주 기록입니다.",
+        color=discord.Color.teal(),
+    )
+    embed.add_field(
+        name="전체 참가자",
+        value=f"**{stats['total_participants']}명**",
+        inline=True,
+    )
+    embed.add_field(
+        name="총 완주",
+        value=f"**{stats['total_attempts']}회**",
+        inline=True,
+    )
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    for mode in ("pvp", "pve"):
+        mode_stats = stats["modes"][mode]
+        embed.add_field(
+            name=MODE_LABELS[mode],
+            value=(
+                f"참가자 **{mode_stats['participants']}명**\n"
+                f"완주 **{mode_stats['attempts']}회**"
+            ),
+            inline=True,
+        )
+    embed.set_footer(text="포기한 퀴즈는 참가·완주 통계에 포함되지 않습니다.")
+    return embed
+
+
+@bot.tree.command(
+    name="퀴즈참가현황",
+    description="서버의 퀴즈 참가자 수와 모드별 누적 완주 횟수를 확인합니다",
+)
+@discord.app_commands.guild_only()
+async def quiz_participation_stats_cmd(interaction: discord.Interaction):
+    await show_public_stats(interaction)
+
+
+async def show_public_stats(
+    interaction: discord.Interaction, *, ephemeral: bool = False
+):
+    await interaction.response.defer(ephemeral=ephemeral)
+    stats = await asyncio.to_thread(database.get_public_stats, interaction.guild_id)
+    await interaction.edit_original_response(embed=build_public_stats_embed(stats))
+
+
+def is_dashboard_message(
+    message: discord.Message,
+    marker: str = DASHBOARD_MARKER,
+) -> bool:
+    """봇이 만든 대시보드인지 footer marker로 판별한다."""
+    return bool(
+        message.author == bot.user
+        and message.embeds
+        and message.embeds[0].footer.text == marker
+    )
+
+
+async def find_dashboard_message(
+    channel,
+    marker: str = DASHBOARD_MARKER,
+) -> discord.Message | None:
+    """고정 메시지를 우선하고, 없으면 최근 메시지에서 기존 대시보드를 찾는다."""
+    if hasattr(channel, "pins"):
+        async for message in channel.pins(limit=50):
+            if is_dashboard_message(message, marker):
+                return message
+
+    async for message in channel.history(limit=100):
+        if is_dashboard_message(message, marker):
+            return message
+    return None
+
+
+async def upsert_dashboard(channel) -> tuple[discord.Message, bool]:
+    """채널의 대시보드를 만들거나 최신 내용으로 갱신한다.
+
+    반환값의 bool은 새 메시지를 만들었으면 True다.
+    """
+    dashboard = await find_dashboard_message(channel)
+    view = QuizDashboardView()
+    if dashboard is None:
+        dashboard = await channel.send(embed=build_dashboard_embed(), view=view)
+        return dashboard, True
+
+    await dashboard.edit(embed=build_dashboard_embed(), view=view)
+    return dashboard, False
+
+
+async def upsert_supervisor_dashboard(channel) -> tuple[discord.Message, bool]:
+    """감독 채널의 관리자 대시보드를 만들거나 갱신한다."""
+    dashboard = await find_dashboard_message(channel, SUPERVISOR_DASHBOARD_MARKER)
+    view = SupervisorDashboardView()
+    if dashboard is None:
+        dashboard = await channel.send(
+            embed=build_supervisor_dashboard_embed(),
+            view=view,
+        )
+        return dashboard, True
+
+    await dashboard.edit(embed=build_supervisor_dashboard_embed(), view=view)
+    return dashboard, False
+
+
+async def ensure_configured_dashboard():
+    """설정된 퀴즈 채널에 대시보드가 있도록 시작 시 한 번 보장한다."""
+    if not config.QUIZ_CHANNEL_ID or getattr(bot, "_dashboard_ready", False):
+        return
+
+    channel = bot.get_channel(config.QUIZ_CHANNEL_ID)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(config.QUIZ_CHANNEL_ID)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            log.exception(
+                "QUIZ_CHANNEL_ID 채널을 불러오지 못해 대시보드를 설치하지 못했습니다. "
+                "(channel=%s)",
+                config.QUIZ_CHANNEL_ID,
+            )
+            return
+
+    if not hasattr(channel, "history") or not hasattr(channel, "send"):
+        log.error(
+            "QUIZ_CHANNEL_ID가 메시지를 보낼 수 없는 채널입니다. (channel=%s)",
+            config.QUIZ_CHANNEL_ID,
+        )
+        return
+
+    try:
+        dashboard, created = await upsert_dashboard(channel)
+    except discord.Forbidden:
+        log.exception(
+            "퀴즈 채널 권한 부족으로 대시보드를 설치하지 못했습니다. "
+            "'채널 보기', '메시지 기록 보기', '메시지 보내기' 권한을 확인하세요. "
+            "(channel=%s)",
+            config.QUIZ_CHANNEL_ID,
+        )
+        return
+    except discord.HTTPException:
+        log.exception(
+            "디스코드 요청 오류로 대시보드를 설치하지 못했습니다. (channel=%s)",
+            config.QUIZ_CHANNEL_ID,
+        )
+        return
+
+    bot._dashboard_ready = True
+    action = "자동 설치" if created else "자동 갱신"
+    log.info("퀴즈 대시보드 %s 완료: %s", action, dashboard.jump_url)
+
+
+async def ensure_supervisor_dashboard():
+    """설정된 관리자 로그 채널에 감독 대시보드가 있도록 보장한다."""
+    if not config.ADMIN_LOG_CHANNEL_ID or getattr(
+        bot, "_supervisor_dashboard_ready", False
+    ):
+        return
+
+    channel = bot.get_channel(config.ADMIN_LOG_CHANNEL_ID)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(config.ADMIN_LOG_CHANNEL_ID)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            log.exception(
+                "ADMIN_LOG_CHANNEL_ID 채널을 불러오지 못해 감독 대시보드를 "
+                "설치하지 못했습니다. (channel=%s)",
+                config.ADMIN_LOG_CHANNEL_ID,
+            )
+            return
+
+    if not hasattr(channel, "history") or not hasattr(channel, "send"):
+        log.error(
+            "ADMIN_LOG_CHANNEL_ID가 메시지를 보낼 수 없는 채널입니다. (channel=%s)",
+            config.ADMIN_LOG_CHANNEL_ID,
+        )
+        return
+
+    try:
+        dashboard, created = await upsert_supervisor_dashboard(channel)
+    except discord.Forbidden:
+        log.exception(
+            "감독 채널 권한 부족으로 대시보드를 설치하지 못했습니다. "
+            "'채널 보기', '메시지 기록 보기', '메시지 보내기' 권한을 확인하세요. "
+            "(channel=%s)",
+            config.ADMIN_LOG_CHANNEL_ID,
+        )
+        return
+    except discord.HTTPException:
+        log.exception(
+            "디스코드 요청 오류로 감독 대시보드를 설치하지 못했습니다. (channel=%s)",
+            config.ADMIN_LOG_CHANNEL_ID,
+        )
+        return
+
+    bot._supervisor_dashboard_ready = True
+    action = "자동 설치" if created else "자동 갱신"
+    log.info("감독 대시보드 %s 완료: %s", action, dashboard.jump_url)
+
+
+@bot.tree.command(
+    name="퀴즈대시보드설치",
+    description="[관리자 전용] 현재 채널에 퀴즈 대시보드를 설치하거나 갱신합니다",
+)
+@discord.app_commands.default_permissions(administrator=True)
+@discord.app_commands.guild_only()
+async def install_dashboard_cmd(interaction: discord.Interaction):
+    if not (
+        interaction.guild
+        and isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
+    ):
+        await interaction.response.send_message(
+            "이 명령어는 서버 관리자만 사용할 수 있어요.", ephemeral=True
+        )
+        return
+
+    channel = interaction.channel
+    if channel is None or not hasattr(channel, "history") or not hasattr(channel, "send"):
+        await interaction.response.send_message(
+            "이 채널에는 대시보드를 설치할 수 없어요.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    try:
+        dashboard, created = await upsert_dashboard(channel)
+        if created:
+            result = "대시보드를 이 채널에 설치했습니다."
+        else:
+            result = "기존 대시보드를 최신 내용으로 갱신했습니다."
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "대시보드를 설치하려면 이 채널의 **메시지 기록 보기**와 "
+            "**메시지 보내기** 권한이 필요합니다.",
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException:
+        log.exception("퀴즈 대시보드 설치/갱신 실패 (channel=%s)", interaction.channel_id)
+        await interaction.followup.send(
+            "디스코드 요청 오류로 대시보드를 설치하지 못했습니다. 잠시 후 다시 시도해주세요.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.followup.send(
+        f"✅ {result} 필요하면 [메시지로 이동]({dashboard.jump_url})해 고정해주세요.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="감독대시보드설치",
+    description="[관리자 전용] 현재 채널에 감독 대시보드를 설치하거나 갱신합니다",
+)
+@discord.app_commands.default_permissions(administrator=True)
+@discord.app_commands.guild_only()
+async def install_supervisor_dashboard_cmd(interaction: discord.Interaction):
+    if not (
+        interaction.guild
+        and isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
+    ):
+        await interaction.response.send_message(
+            "이 명령어는 서버 관리자만 사용할 수 있어요.", ephemeral=True
+        )
+        return
+
+    channel = interaction.channel
+    if channel is None or not hasattr(channel, "history") or not hasattr(channel, "send"):
+        await interaction.response.send_message(
+            "이 채널에는 감독 대시보드를 설치할 수 없어요.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    try:
+        dashboard, created = await upsert_supervisor_dashboard(channel)
+        result = (
+            "감독 대시보드를 이 채널에 설치했습니다."
+            if created
+            else "기존 감독 대시보드를 최신 내용으로 갱신했습니다."
+        )
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "감독 대시보드를 설치하려면 이 채널의 **메시지 기록 보기**와 "
+            "**메시지 보내기** 권한이 필요합니다.",
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException:
+        log.exception("감독 대시보드 설치/갱신 실패 (channel=%s)", interaction.channel_id)
+        await interaction.followup.send(
+            "디스코드 요청 오류로 감독 대시보드를 설치하지 못했습니다.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.followup.send(
+        f"✅ {result} [메시지로 이동]({dashboard.jump_url})",
+        ephemeral=True,
+    )
+
+
+def format_reward_candidates(items: list[dict], kind: str) -> str:
+    if not items:
+        return "조건을 충족한 참가자가 없습니다."
+
+    lines = []
+    for index, item in enumerate(items, start=1):
+        mention = f"<@{item['user_id']}>"
+        if kind == "attempts":
+            detail = f"{item['attempts']}회 · {item['active_days']}일 참여"
+        elif kind == "days":
+            detail = f"{item['active_days']}일 · {item['attempts']}회 완주"
+        elif kind == "underdog":
+            detail = (
+                f"유효 최저 {item['lowest_sincere_score']}점 · "
+                f"평균 {item['average_score']:.0f}점"
+            )
+        elif kind == "growth":
+            detail = (
+                f"+{item['improvement']}점 · "
+                f"첫 {item['first_score']} → 최고 {item['best_score']}"
+            )
+        else:
+            detail = f"PvP·PvE 완주 · 총 {item['attempts']}회"
+        lines.append(f"`{index}.` {mention} — {detail}")
+    return "\n".join(lines)
+
+
+def build_hidden_reward_embed(report: dict, period_days: int) -> discord.Embed:
+    embed = discord.Embed(
+        title="🎁 히든 상품 후보 검토",
+        description=(
+            f"최근 **{period_days}일** 개별 완주 기록 기준\n"
+            f"참가자 **{report['participants']}명** · 완주 **{report['attempts']}회**"
+        ),
+        color=discord.Color.purple(),
+    )
+    embed.add_field(
+        name="🏃 최다 완주",
+        value=format_reward_candidates(report["most_attempts"], "attempts"),
+        inline=False,
+    )
+    embed.add_field(
+        name="📅 꾸준한 생존자",
+        value=format_reward_candidates(report["most_days"], "days"),
+        inline=False,
+    )
+    embed.add_field(
+        name="📈 성장상",
+        value=format_reward_candidates(report["growth"], "growth"),
+        inline=False,
+    )
+    embed.add_field(
+        name="🩹 언더독 검토",
+        value=format_reward_candidates(report["underdogs"], "underdog"),
+        inline=False,
+    )
+    embed.add_field(
+        name="⚔️ 올라운더",
+        value=format_reward_candidates(report["dual_mode"], "dual"),
+        inline=False,
+    )
+    embed.set_footer(
+        text=(
+            "세부 후보는 이 기능 배포 후 완주 기록부터 계산됩니다. "
+            "언더독은 1문제 이상 정답·시간 초과 절반 이하만 포함합니다."
+        )
+    )
+    return embed
+
+
+async def show_hidden_reward_candidates(
+    interaction: discord.Interaction,
+    period_days: int,
+    *,
+    ephemeral: bool = False,
+):
+    await interaction.response.defer(ephemeral=ephemeral)
+    since = (datetime.now(timezone.utc) - timedelta(days=period_days)).isoformat()
+    report = await asyncio.to_thread(
+        database.get_hidden_reward_candidates,
+        interaction.guild_id,
+        since,
+        5,
+    )
+    await interaction.edit_original_response(
+        embed=build_hidden_reward_embed(report, period_days)
+    )
+
+
+@bot.tree.command(
+    name="히든상품후보",
+    description="[관리자 전용] 최근 퀴즈 기록에서 히든 상품 후보를 확인합니다",
+)
+@discord.app_commands.describe(기간일="집계할 최근 기간(기본 30일, 최대 365일)")
+@discord.app_commands.default_permissions(administrator=True)
+@discord.app_commands.guild_only()
+async def hidden_reward_candidates_cmd(
+    interaction: discord.Interaction,
+    기간일: discord.app_commands.Range[int, 1, 365] = 30,
+):
+    if not (
+        interaction.guild
+        and isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
+    ):
+        await interaction.response.send_message(
+            "이 명령어는 서버 관리자만 사용할 수 있어요.", ephemeral=True
+        )
+        return
+
+    if (
+        config.ADMIN_LOG_CHANNEL_ID
+        and interaction.channel_id != config.ADMIN_LOG_CHANNEL_ID
+    ):
+        await interaction.response.send_message(
+            f"히든 상품 후보는 관리자 검토 채널 <#{config.ADMIN_LOG_CHANNEL_ID}>에서 "
+            "확인해주세요.",
+            ephemeral=True,
+        )
+        return
+
+    await show_hidden_reward_candidates(interaction, 기간일)
 
 
 def format_leaderboard_line(
@@ -575,9 +1369,10 @@ class ResetConfirmView(discord.ui.View):
     @discord.ui.button(label="초기화 실행", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.stop()
+        await interaction.response.defer()
         deleted = await asyncio.to_thread(database.reset_leaderboard, self.guild_id)
         log.info(f"랭킹 초기화: {interaction.user} (기록 {deleted}건 삭제)")
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=f"🗑️ 랭킹이 초기화되었습니다. (응시 기록 {deleted}건 삭제)", view=None
         )
 
@@ -613,11 +1408,12 @@ async def reset_leaderboard_cmd(interaction: discord.Interaction):
 
 
 async def show_my_record(interaction: discord.Interaction, mode: str):
+    await interaction.response.defer(ephemeral=True)
     row = await asyncio.to_thread(
         database.get_user_record, interaction.guild_id, mode, interaction.user.id
     )
     if not row:
-        await interaction.response.send_message("아직 퀴즈 기록이 없어요!", ephemeral=True)
+        await interaction.edit_original_response(content="아직 퀴즈 기록이 없어요!")
         return
     username, best_score, last_score, attempts, correct, total = row
     embed = discord.Embed(
@@ -628,7 +1424,7 @@ async def show_my_record(interaction: discord.Interaction, mode: str):
     embed.add_field(name="최근 점수", value=str(last_score))
     embed.add_field(name="도전 횟수", value=str(attempts))
     embed.add_field(name="누적 정답", value=f"{correct}/{total}")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.edit_original_response(embed=embed)
 
 
 @bot.tree.command(name="pvp퀴즈기록", description="내 PvP 퀴즈 기록을 확인합니다")
@@ -641,6 +1437,19 @@ async def pvp_record_cmd(interaction: discord.Interaction):
 @discord.app_commands.guild_only()
 async def pve_record_cmd(interaction: discord.Interaction):
     await show_my_record(interaction, "pve")
+
+
+@bot.tree.error
+async def on_app_command_error(
+    interaction: discord.Interaction,
+    error: discord.app_commands.AppCommandError,
+):
+    """처리되지 않은 슬래시 명령/대시보드 오류를 기록하고 사용자에게 응답한다."""
+    await report_interaction_error(
+        interaction,
+        error,
+        context=f"command:{getattr(interaction.command, 'qualified_name', 'unknown')}",
+    )
 
 
 if __name__ == "__main__":

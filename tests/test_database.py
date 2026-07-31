@@ -49,6 +49,61 @@ class DatabaseTests(unittest.TestCase):
                 self.assertEqual(len(database.get_leaderboard(10, "pvp")), 1)
                 self.assertEqual(len(database.get_leaderboard(10, "pve")), 1)
 
+    def test_public_stats_count_unique_users_and_all_attempts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "한모드", 100, 4, 5)
+                database.record_result(10, "pvp", 1, "한모드", 120, 5, 5)
+                database.record_result(10, "pve", 1, "한모드", 80, 3, 5)
+                database.record_result(10, "pve", 2, "두번째", 60, 2, 5)
+
+                stats = database.get_public_stats(10)
+
+            self.assertEqual(stats["total_participants"], 2)
+            self.assertEqual(stats["total_attempts"], 4)
+            self.assertEqual(stats["modes"]["pvp"], {"participants": 1, "attempts": 2})
+            self.assertEqual(stats["modes"]["pve"], {"participants": 2, "attempts": 2})
+
+    def test_hidden_reward_candidates_use_detailed_attempt_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "성장형", 100, 4, 5)
+                database.record_result(10, "pvp", 1, "성장형", 300, 5, 5)
+                database.record_result(10, "pvp", 2, "올라운더", 10, 1, 5)
+                database.record_result(10, "pve", 2, "올라운더", 20, 2, 5)
+
+                report = database.get_hidden_reward_candidates(
+                    10,
+                    "2020-01-01T00:00:00+00:00",
+                )
+
+            self.assertEqual(report["participants"], 2)
+            self.assertEqual(report["attempts"], 4)
+            self.assertEqual(report["growth"][0]["username"], "성장형")
+            self.assertEqual(report["growth"][0]["improvement"], 200)
+            self.assertEqual(report["underdogs"][0]["username"], "올라운더")
+            self.assertEqual(report["dual_mode"][0]["username"], "올라운더")
+
+    def test_reset_removes_detailed_attempt_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "삭제대상", 100, 4, 5)
+
+                database.reset_leaderboard(10)
+                report = database.get_hidden_reward_candidates(
+                    10,
+                    "2020-01-01T00:00:00+00:00",
+                )
+
+            self.assertEqual(report["participants"], 0)
+            self.assertEqual(report["attempts"], 0)
+
     def test_init_db_migrates_legacy_schema(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "legacy.db"
@@ -89,6 +144,14 @@ class DatabaseTests(unittest.TestCase):
             self.assertIn("mode", columns)
             self.assertIn("best_achieved_at", columns)
             self.assertEqual(legacy, ("0", "legacy", "2026-01-01T00:00:00+00:00"))
+            with closing(sqlite3.connect(path)) as connection:
+                attempts_table = connection.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type = 'table' AND name = 'quiz_attempts'
+                    """
+                ).fetchone()
+            self.assertEqual(attempts_table, ("quiz_attempts",))
 
 
 if __name__ == "__main__":

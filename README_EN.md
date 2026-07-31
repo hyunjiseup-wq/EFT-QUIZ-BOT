@@ -12,6 +12,14 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 ## How it works
 
+- The public **player dashboard** provides **Start PvP · Start PvE · Tutorial · mode ranking · personal record** buttons.
+  When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup.
+  An administrator can also run `/퀴즈대시보드설치` in a channel; running it again updates
+  an existing pinned dashboard (or one found in the latest 100 messages) instead of posting a duplicate.
+  Pinning it is recommended, and its buttons survive bot restarts.
+- A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
+  It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
+  rankings. Only server administrators can use its buttons.
 - `/pvp퀴즈`: Starts a quiz using common questions plus PvP-only questions.
 - `/pve퀴즈`: Starts a quiz using common questions plus PvE-only questions.
   The quiz runs in an ephemeral message visible only to the person who ran the command.
@@ -25,9 +33,16 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 - When all questions are answered, the final score and correct-answer count are shown, and the record is saved.
 - `/타르코프퀴즈포기` (give-up): Abandons the quiz in progress (not saved). Use this to quit partway through and start over.
 - `/pvp퀴즈랭킹`, `/pve퀴즈랭킹`: Mode-specific server TOP 10 (by best score, public message)
+- `/퀴즈참가현황` (participation-stats): Public unique participant count and cumulative
+  PvP/PvE completions for the server.
 - `/pvp퀴즈기록`, `/pve퀴즈기록`: Check your own mode-specific best/most recent score (ephemeral)
 - `/타르코프퀴즈랭킹초기화` (reset-ranking): **Server admin only.** Deletes all records and rankings for the server (behind a confirmation button, cannot be undone).
   Regular users don't see this command at all.
+- `/퀴즈대시보드설치` (install-dashboard): **Server admin only.** Installs or refreshes the public dashboard in the current channel.
+- `/감독대시보드설치` (install-supervisor-dashboard): **Server admin only.** Installs or refreshes the supervisor dashboard in the current channel.
+- `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
+  for most completions, active days, improvement, underdog, and dual-mode participation in the
+  admin review channel (30 days by default, up to 365).
 
 Rankings and personal records are isolated by Discord server and PvP/PvE mode. Records created before
 mode separation are preserved under `mode=legacy` and do not appear in the new mode rankings.
@@ -35,6 +50,12 @@ On first run against a database created
 before per-server isolation existed, old rows aren't deleted — they're automatically migrated into a
 legacy area with `guild_id=0`. Since the old database never stored a server ID, those records won't show
 up in any server's actual ranking.
+
+Each future completion is also stored in `quiz_attempts` with its score, correct answers, timeouts,
+duration, and completion time. The existing leaderboard aggregate remains unchanged.
+Improvement, underdog, and active-day candidates therefore start accumulating after this feature is
+deployed. Underdog review excludes zero-correct runs and runs where more than half the questions timed
+out; candidates are never selected automatically and should be reviewed by an administrator.
 
 ## ⚠️ Known limitation: the 15-minute interaction token
 
@@ -70,7 +91,7 @@ python bot.py
 
 ### Discord Developer Portal configuration
 - Bot permissions: `applications.commands`, `bot` scope
-- Channel permissions: allow "Send Messages" and "Use Slash Commands" in the quiz channel
+- Channel permissions: allow "View Channel", "Send Messages", "Read Message History", and "Use Slash Commands" in the quiz channel
 - Spectator log channel: grant the bot "Send Messages"; hide the channel from regular users
 
 ## File structure
@@ -83,7 +104,10 @@ tarkov_quiz_bot/
 ├── database.py                # SQLite leaderboard
 ├── questions.json             # Question pool data
 ├── check_questions.py         # Question stats + patch-volatility check CLI
-├── tests/test_question_bank.py
+├── tests/
+│   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
+│   ├── test_database.py       # DB migration, ranking, and reward-stat tests
+│   └── test_question_bank.py  # Question validation, mode filtering, and draw tests
 ├── pyproject.toml
 ├── requirements.txt
 ├── 봇실행.bat                 # Windows launcher; auto-sets up the virtual environment

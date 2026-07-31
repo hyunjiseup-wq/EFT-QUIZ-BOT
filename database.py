@@ -1,5 +1,6 @@
 import sqlite3
 import threading
+from collections import defaultdict
 from contextlib import closing
 from datetime import datetime, timezone
 
@@ -94,6 +95,38 @@ def init_db():
                 """
             )
             conn.execute("DROP TABLE leaderboard_without_mode")
+
+        # 개별 완주 이력은 히든 상품 후보(성장 폭, 최저점, 참여 일수 등)를
+        # 계산하기 위해 사용한다. 기존 leaderboard 집계는 그대로 유지한다.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quiz_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                username TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                correct_count INTEGER NOT NULL,
+                total_questions INTEGER NOT NULL,
+                timed_out_count INTEGER NOT NULL DEFAULT 0,
+                duration_seconds REAL NOT NULL DEFAULT 0,
+                completed_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_quiz_attempts_guild_completed
+            ON quiz_attempts (guild_id, completed_at)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_quiz_attempts_guild_user
+            ON quiz_attempts (guild_id, user_id, completed_at)
+            """
+        )
         conn.commit()
 
 
@@ -105,6 +138,9 @@ def record_result(
     score: int,
     correct: int,
     total: int,
+    *,
+    timed_out_count: int = 0,
+    duration_seconds: float = 0,
 ):
     """퀴즈 완료 시 결과를 저장한다.
 
@@ -146,6 +182,26 @@ def record_result(
                 now,
             ),
         )
+        conn.execute(
+            """
+            INSERT INTO quiz_attempts
+                (guild_id, mode, user_id, username, score, correct_count,
+                 total_questions, timed_out_count, duration_seconds, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(guild_id),
+                mode,
+                str(user_id),
+                username,
+                score,
+                correct,
+                total,
+                timed_out_count,
+                max(0, float(duration_seconds)),
+                now,
+            ),
+        )
         conn.commit()
 
 
@@ -165,13 +221,18 @@ def get_leaderboard(guild_id: int, mode: str, limit: int = 10):
 
 
 def reset_leaderboard(guild_id: int, mode: str | None = None) -> int:
-    """해당 서버의 응시 기록을 삭제하고 삭제된 행 수를 반환한다."""
+    """해당 서버의 집계 및 개별 완주 이력을 삭제하고 집계 행 수를 반환한다."""
     with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
         if mode is None:
             cur = conn.execute("DELETE FROM leaderboard WHERE guild_id = ?", (str(guild_id),))
+            conn.execute("DELETE FROM quiz_attempts WHERE guild_id = ?", (str(guild_id),))
         else:
             cur = conn.execute(
                 "DELETE FROM leaderboard WHERE guild_id = ? AND mode = ?",
+                (str(guild_id), mode),
+            )
+            conn.execute(
+                "DELETE FROM quiz_attempts WHERE guild_id = ? AND mode = ?",
                 (str(guild_id), mode),
             )
         conn.commit()
@@ -188,3 +249,167 @@ def get_user_record(guild_id: int, mode: str, user_id: int):
             (str(guild_id), mode, str(user_id)),
         )
         return cur.fetchone()
+
+
+def get_public_stats(guild_id: int) -> dict:
+    """기존 집계 기록을 포함한 서버 공개 참가 현황을 반환한다."""
+    guild = str(guild_id)
+    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+        total_participants = conn.execute(
+            """
+            SELECT COUNT(DISTINCT user_id)
+            FROM leaderboard
+            WHERE guild_id = ? AND mode IN ('pvp', 'pve')
+            """,
+            (guild,),
+        ).fetchone()[0]
+        total_attempts = conn.execute(
+            """
+            SELECT COALESCE(SUM(attempts), 0)
+            FROM leaderboard
+            WHERE guild_id = ? AND mode IN ('pvp', 'pve')
+            """,
+            (guild,),
+        ).fetchone()[0]
+        mode_rows = conn.execute(
+            """
+            SELECT mode, COUNT(*), COALESCE(SUM(attempts), 0)
+            FROM leaderboard
+            WHERE guild_id = ? AND mode IN ('pvp', 'pve')
+            GROUP BY mode
+            """,
+            (guild,),
+        ).fetchall()
+
+    modes = {
+        "pvp": {"participants": 0, "attempts": 0},
+        "pve": {"participants": 0, "attempts": 0},
+    }
+    for mode, participants, attempts in mode_rows:
+        modes[mode] = {"participants": participants, "attempts": attempts}
+    return {
+        "total_participants": total_participants,
+        "total_attempts": total_attempts,
+        "modes": modes,
+    }
+
+
+def get_hidden_reward_candidates(
+    guild_id: int,
+    since: str,
+    limit: int = 5,
+) -> dict:
+    """기간 내 개별 완주 이력으로 관리자용 히든 상품 후보를 계산한다."""
+    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+        rows = conn.execute(
+            """
+            SELECT user_id, username, mode, score, correct_count, total_questions,
+                   timed_out_count, duration_seconds, completed_at
+            FROM quiz_attempts
+            WHERE guild_id = ? AND completed_at >= ?
+            ORDER BY completed_at ASC, id ASC
+            """,
+            (str(guild_id), since),
+        ).fetchall()
+
+    users: dict[str, dict] = defaultdict(
+        lambda: {
+            "username": "",
+            "attempts": [],
+            "active_days": set(),
+            "modes": set(),
+        }
+    )
+    for (
+        user_id,
+        username,
+        mode,
+        score,
+        correct,
+        total,
+        timed_out,
+        duration,
+        completed_at,
+    ) in rows:
+        user = users[user_id]
+        user["username"] = username
+        user["attempts"].append(
+            {
+                "mode": mode,
+                "score": score,
+                "correct": correct,
+                "total": total,
+                "timed_out": timed_out,
+                "duration": duration,
+                "completed_at": completed_at,
+            }
+        )
+        user["active_days"].add(completed_at[:10])
+        user["modes"].add(mode)
+
+    summaries = []
+    for user_id, user in users.items():
+        attempts = user["attempts"]
+        scores = [attempt["score"] for attempt in attempts]
+        first_score = scores[0]
+        later_best = max(scores[1:], default=first_score)
+        # 언더독은 최소 1문제 이상 정답이고 시간 초과가 절반 이하인 정상 완주만 인정한다.
+        sincere_scores = [
+            attempt["score"]
+            for attempt in attempts
+            if attempt["correct"] >= 1
+            and attempt["timed_out"] <= attempt["total"] / 2
+        ]
+        summaries.append(
+            {
+                "user_id": user_id,
+                "username": user["username"],
+                "attempts": len(attempts),
+                "active_days": len(user["active_days"]),
+                "modes": set(user["modes"]),
+                "first_score": first_score,
+                "best_score": max(scores),
+                "lowest_sincere_score": min(sincere_scores) if sincere_scores else None,
+                "improvement": later_best - first_score if len(attempts) >= 2 else None,
+                "average_score": sum(scores) / len(scores),
+            }
+        )
+
+    most_attempts = sorted(
+        summaries,
+        key=lambda item: (-item["attempts"], -item["active_days"], item["username"]),
+    )[:limit]
+    most_days = sorted(
+        summaries,
+        key=lambda item: (-item["active_days"], -item["attempts"], item["username"]),
+    )[:limit]
+    underdogs = sorted(
+        (item for item in summaries if item["lowest_sincere_score"] is not None),
+        key=lambda item: (
+            item["lowest_sincere_score"],
+            -item["attempts"],
+            item["username"],
+        ),
+    )[:limit]
+    growth = sorted(
+        (
+            item
+            for item in summaries
+            if item["improvement"] is not None and item["improvement"] > 0
+        ),
+        key=lambda item: (-item["improvement"], -item["attempts"], item["username"]),
+    )[:limit]
+    dual_mode = sorted(
+        (item for item in summaries if {"pvp", "pve"} <= item["modes"]),
+        key=lambda item: (-item["attempts"], -item["active_days"], item["username"]),
+    )[:limit]
+
+    return {
+        "participants": len(users),
+        "attempts": len(rows),
+        "most_attempts": most_attempts,
+        "most_days": most_days,
+        "underdogs": underdogs,
+        "growth": growth,
+        "dual_mode": dual_mode,
+    }
