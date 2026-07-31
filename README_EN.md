@@ -82,6 +82,8 @@ Set a channel ID in `.env`'s `ADMIN_LOG_CHANNEL_ID` to enable this
 
 ## Setup
 
+Python **3.10 or newer** is required. This project uses APIs introduced in discord.py 2.6.
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
@@ -118,6 +120,20 @@ tarkov_quiz_bot/
 `.env`, `.venv`, `__pycache__`, and `quiz_leaderboard.db` are local files created or used at
 runtime, so they aren't version-controlled. To keep the database outside of OneDrive sync,
 point `.env`'s `QUIZ_DB_PATH` at an absolute path.
+
+## Large-event protection
+
+- SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
+  much less likely to fail with `database is locked` under bursts.
+- A ranking index is maintained, and hidden-reward candidates are aggregated as a stream rather
+  than loading every attempt into memory at once.
+- The admin spectator message is edited every five questions by default and once at completion;
+  every per-question detail is still retained for the final log.
+- Concurrent active sessions are capped at 250 per server by default. Existing quizzes continue;
+  only new starts wait until capacity becomes available.
+
+`MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
+limit is the number of quizzes active at the same instant, not the Discord server's member count.
 
 ## Adding/editing questions
 
@@ -161,6 +177,9 @@ python check_questions.py
 python -m unittest discover -s tests -v
 python -m py_compile bot.py config.py database.py question_bank.py check_questions.py
 ```
+
+For VS Code, the committed `.vscode/settings.json` selects the project's
+`.venv\\Scripts\\python.exe` and configures `unittest` discovery.
 
 On Windows, `봇실행.bat` first runs the Python inside `.venv` to check its state. If the original
 Python installation was removed and the virtual environment is broken, it deletes that environment

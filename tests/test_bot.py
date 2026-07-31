@@ -163,6 +163,51 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
             content="아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!"
         )
 
+    def test_active_session_count_is_isolated_by_guild_and_mode(self):
+        pvp = Mock(guild_id=10, mode="pvp")
+        pvp.is_active.return_value = True
+        pve = Mock(guild_id=10, mode="pve")
+        pve.is_active.return_value = True
+        other_guild = Mock(guild_id=20, mode="pvp")
+        other_guild.is_active.return_value = True
+
+        with patch.dict(
+            bot.active_sessions,
+            {(10, 1): pvp, (10, 2): pve, (20, 3): other_guild},
+            clear=True,
+        ):
+            self.assertEqual(bot.count_active_sessions(10), 2)
+            self.assertEqual(bot.count_active_sessions(10, "pvp"), 1)
+            self.assertEqual(bot.count_active_sessions(20), 1)
+
+    async def test_admin_log_updates_are_batched(self):
+        question = {
+            "difficulty": "general",
+            "question": "테스트 문제",
+            "choices": ["정답", "오답1", "오답2", "오답3"],
+            "answer": 0,
+            "explanation": "테스트 해설",
+        }
+        session = bot.QuizSession(
+            mode="pvp",
+            guild_id=10,
+            user_id=1,
+            username="테스터",
+            channel_id=20,
+            questions=[question] * 30,
+        )
+        session.admin_log_message = Mock()
+        session.admin_log_message.edit = AsyncMock()
+
+        with patch.object(bot.config, "ADMIN_LOG_UPDATE_EVERY", 5):
+            session.per_difficulty["general"] = [0, 1]
+            await bot.update_admin_log(session, question, False, False, "오답1")
+            session.admin_log_message.edit.assert_not_awaited()
+
+            session.per_difficulty["general"] = [0, 5]
+            await bot.update_admin_log(session, question, False, False, "오답1")
+            session.admin_log_message.edit.assert_awaited_once()
+
     def test_leaderboard_line_labels_accumulated_results(self):
         line = bot.format_leaderboard_line("🥇", "테스터", 100, 2, 7, 10)
 

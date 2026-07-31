@@ -80,6 +80,8 @@
 
 ## 설치
 
+Python **3.10 이상**이 필요합니다. 이 프로젝트는 discord.py 2.6 이상 API를 사용합니다.
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
@@ -116,6 +118,20 @@ tarkov_quiz_bot/
 `.env`, `.venv`, `__pycache__`, `quiz_leaderboard.db`는 실행 중 생성되거나 사용하는
 로컬 파일이므로 버전 관리 대상이 아닙니다. DB를 OneDrive 동기화 밖에 두려면 `.env`의
 `QUIZ_DB_PATH`에 절대경로를 지정하세요.
+
+## 대규모 이벤트 보호
+
+- SQLite는 시작 시 WAL 모드와 30초 busy timeout을 적용해 결과 저장과 랭킹 조회가 겹쳐도
+  `database is locked` 오류가 쉽게 발생하지 않도록 합니다.
+- 랭킹 전용 인덱스를 사용하고, 히든 상품 후보는 전체 완주 목록을 메모리에 적재하지 않고
+  순차 집계합니다.
+- 관리자 관전 로그의 Discord 메시지는 기본 5문제마다 묶어 갱신하고 완료 시 최종 갱신합니다.
+  모든 문제별 기록은 임베드용 메모리에 계속 보존됩니다.
+- 한 서버의 동시 진행 세션은 기본 250개로 제한합니다. 상한에 도달하면 진행 중 세션이
+  끝날 때까지 신규 시작만 잠시 제한하며 기존 퀴즈는 계속 진행됩니다.
+
+필요하면 `.env`에서 `MAX_ACTIVE_SESSIONS_PER_GUILD`와 `ADMIN_LOG_UPDATE_EVERY`를 조정할 수
+있습니다. 동시 세션 상한은 전체 서버 인원수가 아니라 **같은 순간에 진행 중인 퀴즈 수**입니다.
 
 ## 문제 추가/수정
 
@@ -157,6 +173,9 @@ python check_questions.py
 python -m unittest discover -s tests -v
 python -m py_compile bot.py config.py database.py question_bank.py check_questions.py
 ```
+
+VS Code에서는 저장소에 포함된 `.vscode/settings.json`이 프로젝트의
+`.venv\\Scripts\\python.exe`와 `unittest` 검색 경로를 자동으로 선택합니다.
 
 Windows에서는 `봇실행.bat`가 `.venv`의 Python을 먼저 실행해 상태를 확인합니다. 기존 Python이
 제거되어 가상환경이 깨진 경우 해당 가상환경을 지우고 현재 설치된 Python으로 다시 구성합니다.

@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
@@ -9,6 +10,43 @@ import database
 
 
 class DatabaseTests(unittest.TestCase):
+    def test_init_enables_wal_and_ranking_index(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                with closing(sqlite3.connect(path)) as connection:
+                    journal_mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+                    indexes = {
+                        row[1] for row in connection.execute("PRAGMA index_list(leaderboard)")
+                    }
+
+            self.assertEqual(journal_mode, "wal")
+            self.assertIn("idx_leaderboard_ranking", indexes)
+
+    def test_concurrent_reads_and_writes_do_not_lock_database(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+
+                def write(index):
+                    database.record_result(10, "pvp", index, f"사용자{index}", 100, 4, 5)
+
+                def read(_index):
+                    return database.get_leaderboard(10, "pvp")
+
+                with ThreadPoolExecutor(max_workers=12) as executor:
+                    futures = [executor.submit(write, index) for index in range(20)]
+                    futures += [executor.submit(read, index) for index in range(40)]
+                    for future in futures:
+                        future.result(timeout=10)
+
+                stats = database.get_public_stats(10)
+
+            self.assertEqual(stats["total_participants"], 20)
+            self.assertEqual(stats["total_attempts"], 20)
+
     def test_record_result_keeps_best_and_accumulates_totals(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "leaderboard.db"

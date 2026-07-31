@@ -364,15 +364,11 @@ class SupervisorDashboardView(discord.ui.View):
         row=0,
     )
     async def sessions(self, interaction: discord.Interaction, button: discord.ui.Button):
-        guild_sessions = [
-            session
-            for session in active_sessions.values()
-            if session.guild_id == interaction.guild_id and session.is_active()
-        ]
-        pvp_count = sum(session.mode == "pvp" for session in guild_sessions)
-        pve_count = sum(session.mode == "pve" for session in guild_sessions)
+        total_count = count_active_sessions(interaction.guild_id)
+        pvp_count = count_active_sessions(interaction.guild_id, "pvp")
+        pve_count = count_active_sessions(interaction.guild_id, "pve")
         await interaction.response.send_message(
-            f"현재 활성 세션 **{len(guild_sessions)}개** "
+            f"현재 활성 세션 **{total_count}개** "
             f"(PvP {pvp_count} · PvE {pve_count})",
             ephemeral=True,
         )
@@ -404,6 +400,15 @@ class SupervisorDashboardView(discord.ui.View):
 
 # (guild_id, user_id) -> QuizSession
 active_sessions: dict[tuple[int, int], "QuizSession"] = {}
+
+
+def count_active_sessions(guild_id: int, mode: str | None = None) -> int:
+    return sum(
+        session.guild_id == guild_id
+        and session.is_active()
+        and (mode is None or session.mode == mode)
+        for session in active_sessions.values()
+    )
 
 
 @dataclass
@@ -703,9 +708,14 @@ async def start_admin_log(client: discord.Client, session: QuizSession):
         return
     embed = build_admin_embed(session, "🟡 진행 중", discord.Color.blurple())
     try:
-        session.admin_log_message = await channel.send(embed=embed)
-    except discord.Forbidden:
-        log.warning("관리자 로그 채널에 메시지를 보낼 권한이 없습니다.")
+        session.admin_log_message = await asyncio.wait_for(
+            channel.send(embed=embed),
+            timeout=ADMIN_LOG_TIMEOUT,
+        )
+    except TimeoutError:
+        log.warning("관리자 로그 생성 시간 초과; 퀴즈 진행은 계속합니다.")
+    except discord.HTTPException as error:
+        log.warning("관리자 로그 생성 실패; 퀴즈 진행은 계속합니다: %s", error)
 
 
 async def update_admin_log(
@@ -735,6 +745,13 @@ async def update_admin_log(
         explanation = q.get("explanation")
         if explanation:
             session.admin_log_lines.append(f"　└ 💡 {explanation[:150]}")
+
+    # 모든 답변은 메모리에 남기되 Discord API 편집은 묶어서 수행한다.
+    # 마지막 문제는 finalize_admin_log가 최종 상태와 함께 한 번만 갱신한다.
+    answered = sum(counts[1] for counts in session.per_difficulty.values())
+    if answered >= session.total or answered % config.ADMIN_LOG_UPDATE_EVERY:
+        return
+
     embed = build_admin_embed(session, "🟡 진행 중", discord.Color.blurple())
     try:
         await asyncio.wait_for(
@@ -760,8 +777,11 @@ async def finalize_admin_log(session: QuizSession, aborted: bool, reason: str = 
         color = discord.Color.green()
     embed = build_admin_embed(session, status, color)
     try:
-        await session.admin_log_message.edit(embed=embed)
-    except discord.HTTPException:
+        await asyncio.wait_for(
+            session.admin_log_message.edit(embed=embed),
+            timeout=ADMIN_LOG_TIMEOUT,
+        )
+    except (TimeoutError, discord.HTTPException):
         pass
     session.admin_log_message = None
 
@@ -879,6 +899,20 @@ async def show_leaderboard(
     if not rows:
         await interaction.edit_original_response(
             content="아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!"
+        )
+        return
+
+    guild_active_count = count_active_sessions(interaction.guild_id)
+    if guild_active_count >= config.MAX_ACTIVE_SESSIONS_PER_GUILD:
+        await interaction.response.send_message(
+            "현재 동시 응시자가 많아 새 퀴즈를 잠시 시작할 수 없어요. "
+            "진행 중인 응시자가 끝난 뒤 다시 시도해주세요.",
+            ephemeral=True,
+        )
+        log.warning(
+            "서버 동시 세션 상한 도달 (guild=%s, active=%s)",
+            interaction.guild_id,
+            guild_active_count,
         )
         return
 

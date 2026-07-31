@@ -7,6 +7,19 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _positive_int_env(name: str, default: int) -> int:
+    """양의 정수 환경변수를 읽고 잘못된 값이면 안전한 기본값을 사용한다."""
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        print(f"[경고] {name}이 올바른 숫자가 아니어서 기본값 {default}을 사용합니다.")
+        return default
+    if value <= 0:
+        print(f"[경고] {name}은 1 이상이어야 해서 기본값 {default}을 사용합니다.")
+        return default
+    return value
+
+
 def _project_path(env_name: str, default_name: str) -> Path:
     """환경변수 경로를 절대경로로 변환한다.
 
@@ -19,29 +32,33 @@ def _project_path(env_name: str, default_name: str) -> Path:
     return path.resolve()
 
 
+def _channel_id_env(name: str) -> int:
+    """Discord 채널 ID를 읽는다. 0은 미설정이며 음수와 비정수는 거부한다."""
+    raw = os.getenv(name, "0").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        print(f"[경고] {name}가 올바른 숫자가 아니어서 기능을 비활성화합니다.")
+        return 0
+    if value < 0:
+        print(f"[경고] {name}는 0 이상의 숫자여야 해서 기능을 비활성화합니다.")
+        return 0
+    return value
+
+
 # 디스코드 봇 토큰 (.env 파일에서 로드)
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
 
 # 관리자 전용 "관전 로그" 채널 ID
 # - 응시자에게는 ephemeral(본인만 보임)로 퀴즈가 진행되므로,
 #   관리자가 모든 응시자의 진행 상황을 볼 수 있도록 이 채널에 세션당 로그 메시지 1개를 남깁니다.
 # - 값이 비어있거나 잘못된 경우 관리자 로그 기능만 비활성화되고 봇은 정상 동작합니다.
-try:
-    ADMIN_LOG_CHANNEL_ID = int(os.getenv("ADMIN_LOG_CHANNEL_ID", "0"))
-except ValueError:
-    print(
-        "[경고] ADMIN_LOG_CHANNEL_ID가 올바른 숫자가 아닙니다. 관리자 로그 기능을 비활성화합니다."
-    )
-    ADMIN_LOG_CHANNEL_ID = 0
+ADMIN_LOG_CHANNEL_ID = _channel_id_env("ADMIN_LOG_CHANNEL_ID")
 
 # 퀴즈 시작을 허용할 채널 ID
-# - 이 채널에서만 /타르코프퀴즈시작 을 사용할 수 있습니다.
+# - 이 채널에서만 /pvp퀴즈, /pve퀴즈와 이용자 대시보드를 사용할 수 있습니다.
 # - 0(미설정)이면 모든 채널에서 시작할 수 있습니다.
-try:
-    QUIZ_CHANNEL_ID = int(os.getenv("QUIZ_CHANNEL_ID", "0"))
-except ValueError:
-    print("[경고] QUIZ_CHANNEL_ID가 올바른 숫자가 아닙니다. 채널 제한 없이 동작합니다.")
-    QUIZ_CHANNEL_ID = 0
+QUIZ_CHANNEL_ID = _channel_id_env("QUIZ_CHANNEL_ID")
 
 # 난이도별 배점
 POINTS = {
@@ -60,6 +77,13 @@ DIFFICULTY_LABEL = {
 
 # 문제당 제한 시간(초)
 QUESTION_TIME_LIMIT = 20
+
+# 이벤트 공지 직후 과도한 동시 시작으로 메모리와 Discord API가 포화되는 것을 막는다.
+# 전체 서버 인원 제한이 아니라 한 서버에서 동시에 진행 중인 세션 수 제한이다.
+MAX_ACTIVE_SESSIONS_PER_GUILD = _positive_int_env("MAX_ACTIVE_SESSIONS_PER_GUILD", 250)
+
+# 관리자 관전 로그는 모든 답변 내용을 메모리에 쌓되, Discord 메시지는 N문제마다 묶어서 갱신한다.
+ADMIN_LOG_UPDATE_EVERY = _positive_int_env("ADMIN_LOG_UPDATE_EVERY", 5)
 
 # 한 판(세션)에서 난이도별로 문제 풀에서 랜덤으로 뽑을 문제 수
 # questions.json에 각 난이도별로 이 숫자 이상의 문제가 있어야 중복 없이 뽑힙니다.

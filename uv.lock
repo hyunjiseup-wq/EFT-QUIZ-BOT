@@ -698,7 +698,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "discord-py", specifier = ">=2.4.0,<3.0.0" },
+    { name = "discord-py", specifier = ">=2.6.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1,<2.0.0" },
 ]
 

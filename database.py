@@ -7,10 +7,22 @@ from datetime import datetime, timezone
 from config import DB_PATH
 
 _lock = threading.Lock()
+SQLITE_BUSY_TIMEOUT_MS = 30_000
+
+
+def _connect() -> sqlite3.Connection:
+    """동시 요청이 몰려도 즉시 database locked로 실패하지 않는 연결을 만든다."""
+    conn = sqlite3.connect(DB_PATH, timeout=SQLITE_BUSY_TIMEOUT_MS / 1000)
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    return conn
 
 
 def init_db():
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _lock, closing(_connect()) as conn:
+        # WAL은 읽기가 쓰기를 막지 않으므로 랭킹 조회와 결과 저장이 몰릴 때 유리하다.
+        conn.execute("PRAGMA journal_mode = WAL")
         columns = {row[1]: row for row in conn.execute("PRAGMA table_info(leaderboard)")}
         if columns and "guild_id" not in columns:
             # 구버전 기록에는 어느 서버에서 생성됐는지 정보가 없다. 삭제하지 않고
@@ -127,6 +139,12 @@ def init_db():
             ON quiz_attempts (guild_id, user_id, completed_at)
             """
         )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_leaderboard_ranking
+            ON leaderboard (guild_id, mode, best_score DESC, best_achieved_at ASC)
+            """
+        )
         conn.commit()
 
 
@@ -149,7 +167,7 @@ def record_result(
     - total_correct / total_questions: 전 세션 누적
     """
     now = datetime.now(timezone.utc).isoformat()
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    with _lock, closing(_connect()) as conn:
         conn.execute(
             """
             INSERT INTO leaderboard
@@ -206,7 +224,8 @@ def record_result(
 
 
 def get_leaderboard(guild_id: int, mode: str, limit: int = 10):
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    # WAL 모드에서는 읽기끼리 직렬화할 필요가 없다.
+    with closing(_connect()) as conn:
         cur = conn.execute(
             """
             SELECT username, best_score, attempts, total_correct, total_questions
@@ -222,7 +241,7 @@ def get_leaderboard(guild_id: int, mode: str, limit: int = 10):
 
 def reset_leaderboard(guild_id: int, mode: str | None = None) -> int:
     """해당 서버의 집계 및 개별 완주 이력을 삭제하고 집계 행 수를 반환한다."""
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    with _lock, closing(_connect()) as conn:
         if mode is None:
             cur = conn.execute("DELETE FROM leaderboard WHERE guild_id = ?", (str(guild_id),))
             conn.execute("DELETE FROM quiz_attempts WHERE guild_id = ?", (str(guild_id),))
@@ -240,7 +259,7 @@ def reset_leaderboard(guild_id: int, mode: str | None = None) -> int:
 
 
 def get_user_record(guild_id: int, mode: str, user_id: int):
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(_connect()) as conn:
         cur = conn.execute(
             """
             SELECT username, best_score, last_score, attempts, total_correct, total_questions
@@ -254,7 +273,7 @@ def get_user_record(guild_id: int, mode: str, user_id: int):
 def get_public_stats(guild_id: int) -> dict:
     """기존 집계 기록을 포함한 서버 공개 참가 현황을 반환한다."""
     guild = str(guild_id)
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(_connect()) as conn:
         total_participants = conn.execute(
             """
             SELECT COUNT(DISTINCT user_id)
@@ -300,78 +319,70 @@ def get_hidden_reward_candidates(
     limit: int = 5,
 ) -> dict:
     """기간 내 개별 완주 이력으로 관리자용 히든 상품 후보를 계산한다."""
-    with _lock, closing(sqlite3.connect(DB_PATH)) as conn:
-        rows = conn.execute(
+    users: dict[str, dict] = defaultdict(
+        lambda: {
+            "username": "",
+            "attempts": 0,
+            "active_days": set(),
+            "modes": set(),
+            "first_score": None,
+            "later_best": None,
+            "best_score": 0,
+            "score_total": 0,
+            "lowest_sincere_score": None,
+        }
+    )
+    row_count = 0
+    with closing(_connect()) as conn:
+        cursor = conn.execute(
             """
             SELECT user_id, username, mode, score, correct_count, total_questions,
-                   timed_out_count, duration_seconds, completed_at
+                   timed_out_count, completed_at
             FROM quiz_attempts
             WHERE guild_id = ? AND completed_at >= ?
             ORDER BY completed_at ASC, id ASC
             """,
             (str(guild_id), since),
-        ).fetchall()
-
-    users: dict[str, dict] = defaultdict(
-        lambda: {
-            "username": "",
-            "attempts": [],
-            "active_days": set(),
-            "modes": set(),
-        }
-    )
-    for (
-        user_id,
-        username,
-        mode,
-        score,
-        correct,
-        total,
-        timed_out,
-        duration,
-        completed_at,
-    ) in rows:
-        user = users[user_id]
-        user["username"] = username
-        user["attempts"].append(
-            {
-                "mode": mode,
-                "score": score,
-                "correct": correct,
-                "total": total,
-                "timed_out": timed_out,
-                "duration": duration,
-                "completed_at": completed_at,
-            }
         )
-        user["active_days"].add(completed_at[:10])
-        user["modes"].add(mode)
+        for user_id, username, mode, score, correct, total, timed_out, completed_at in cursor:
+            row_count += 1
+            user = users[user_id]
+            user["username"] = username
+            if user["attempts"] == 0:
+                user["first_score"] = score
+            else:
+                previous_best = user["later_best"]
+                user["later_best"] = (
+                    score if previous_best is None else max(previous_best, score)
+                )
+            user["attempts"] += 1
+            user["best_score"] = max(user["best_score"], score)
+            user["score_total"] += score
+            user["active_days"].add(completed_at[:10])
+            user["modes"].add(mode)
+            if correct >= 1 and timed_out <= total / 2:
+                previous_low = user["lowest_sincere_score"]
+                user["lowest_sincere_score"] = (
+                    score if previous_low is None else min(previous_low, score)
+                )
 
     summaries = []
     for user_id, user in users.items():
         attempts = user["attempts"]
-        scores = [attempt["score"] for attempt in attempts]
-        first_score = scores[0]
-        later_best = max(scores[1:], default=first_score)
-        # 언더독은 최소 1문제 이상 정답이고 시간 초과가 절반 이하인 정상 완주만 인정한다.
-        sincere_scores = [
-            attempt["score"]
-            for attempt in attempts
-            if attempt["correct"] >= 1
-            and attempt["timed_out"] <= attempt["total"] / 2
-        ]
+        first_score = user["first_score"]
+        later_best = user["later_best"]
         summaries.append(
             {
                 "user_id": user_id,
                 "username": user["username"],
-                "attempts": len(attempts),
+                "attempts": attempts,
                 "active_days": len(user["active_days"]),
                 "modes": set(user["modes"]),
                 "first_score": first_score,
-                "best_score": max(scores),
-                "lowest_sincere_score": min(sincere_scores) if sincere_scores else None,
-                "improvement": later_best - first_score if len(attempts) >= 2 else None,
-                "average_score": sum(scores) / len(scores),
+                "best_score": user["best_score"],
+                "lowest_sincere_score": user["lowest_sincere_score"],
+                "improvement": later_best - first_score if attempts >= 2 else None,
+                "average_score": user["score_total"] / attempts,
             }
         )
 
@@ -406,7 +417,7 @@ def get_hidden_reward_candidates(
 
     return {
         "participants": len(users),
-        "attempts": len(rows),
+        "attempts": row_count,
         "most_attempts": most_attempts,
         "most_days": most_days,
         "underdogs": underdogs,
