@@ -108,6 +108,7 @@ python bot.py
 tarkov_quiz_bot/
 ├── bot.py                     # Discord 버튼 UI, 로그, 명령어
 ├── admin_log.py               # 관리자 관전 로그 생성·일괄 갱신
+├── interaction_access.py      # 관리자 권한 검사·공통 오류 응답
 ├── quiz_session.py            # 세션 상태와 활성 세션 레지스트리
 ├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
@@ -123,6 +124,7 @@ tarkov_quiz_bot/
 ├── assets/dashboard_icons/    # Discord용 128px 투명 UI 아이콘 21종
 ├── tests/
 │   ├── test_admin_log.py      # 관리자 관전 로그·임베드 제한 테스트
+│   ├── test_interaction_access.py # 관리자 권한·오류 응답 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
@@ -195,7 +197,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 

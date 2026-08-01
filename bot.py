@@ -7,6 +7,7 @@ import discord
 import admin_log
 import config
 import database
+import interaction_access
 import quiz_completion
 import quiz_presenters
 import quiz_scoring
@@ -273,28 +274,24 @@ async def report_interaction_error(
     *,
     context: str,
 ):
-    """슬래시 명령과 영구 버튼에서 공통으로 사용하는 최종 오류 응답."""
-    original = getattr(error, "original", error)
-    error_id = str(interaction.id)[-8:]
-    log.error(
-        "Discord 인터랙션 처리 실패 (error_id=%s, context=%s, user=%s)",
-        error_id,
-        context,
-        interaction.user.id,
-        exc_info=(type(original), original, original.__traceback__),
+    await interaction_access.report_interaction_error(
+        interaction,
+        error,
+        context=context,
+        quiz_icon_text=quiz_icon_text,
+        logger=log,
     )
-    warning_icon = quiz_icon_text(interaction.guild_id, "tq_warning", "⚠️")
-    message = (
-        f"{warning_icon} 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. "
-        f"계속되면 관리자에게 오류 번호 `{error_id}`를 알려주세요."
+
+
+async def require_guild_admin(
+    interaction: discord.Interaction,
+    denied_message: str = interaction_access.ADMIN_COMMAND_MESSAGE,
+) -> bool:
+    return await interaction_access.require_guild_admin(
+        interaction,
+        quiz_alert_text=quiz_alert_text,
+        denied_message=denied_message,
     )
-    try:
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
-    except discord.HTTPException:
-        log.warning("Discord 오류 안내 메시지 전송 실패 (error_id=%s)", error_id)
 
 
 class QuizDashboardView(discord.ui.View):
@@ -402,21 +399,10 @@ class SupervisorDashboardView(discord.ui.View):
         apply_dashboard_emojis(self, emojis)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        is_admin = (
-            interaction.guild
-            and isinstance(interaction.user, discord.Member)
-            and interaction.user.guild_permissions.administrator
-        )
-        if not is_admin:
-            await interaction.response.send_message(
-                quiz_alert_text(
-                    interaction.guild_id,
-                    "tq_warning",
-                    "⚠️",
-                    "감독 대시보드는 서버 관리자만 사용할 수 있어요.",
-                ),
-                ephemeral=True,
-            )
+        if not await require_guild_admin(
+            interaction,
+            "감독 대시보드는 서버 관리자만 사용할 수 있어요.",
+        ):
             return False
         if (
             config.ADMIN_LOG_CHANNEL_ID
@@ -1093,20 +1079,7 @@ async def refresh_configured_dashboards(
 @discord.app_commands.guild_only()
 async def install_dashboard_icons_cmd(interaction: discord.Interaction):
     guild = interaction.guild
-    if not (
-        guild
-        and isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 명령어는 서버 관리자만 사용할 수 있어요.",
-            ),
-            ephemeral=True,
-        )
+    if not await require_guild_admin(interaction):
         return
 
     bot_member = guild.me
@@ -1219,20 +1192,7 @@ async def install_dashboard_icons_cmd(interaction: discord.Interaction):
 @discord.app_commands.default_permissions(administrator=True)
 @discord.app_commands.guild_only()
 async def install_dashboard_cmd(interaction: discord.Interaction):
-    if not (
-        interaction.guild
-        and isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 명령어는 서버 관리자만 사용할 수 있어요.",
-            ),
-            ephemeral=True,
-        )
+    if not await require_guild_admin(interaction):
         return
 
     channel = interaction.channel
@@ -1295,20 +1255,7 @@ async def install_dashboard_cmd(interaction: discord.Interaction):
 @discord.app_commands.default_permissions(administrator=True)
 @discord.app_commands.guild_only()
 async def install_supervisor_dashboard_cmd(interaction: discord.Interaction):
-    if not (
-        interaction.guild
-        and isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 명령어는 서버 관리자만 사용할 수 있어요.",
-            ),
-            ephemeral=True,
-        )
+    if not await require_guild_admin(interaction):
         return
 
     channel = interaction.channel
@@ -1400,20 +1347,7 @@ async def hidden_reward_candidates_cmd(
     interaction: discord.Interaction,
     기간일: discord.app_commands.Range[int, 1, 365] = 30,
 ):
-    if not (
-        interaction.guild
-        and isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 명령어는 서버 관리자만 사용할 수 있어요.",
-            ),
-            ephemeral=True,
-        )
+    if not await require_guild_admin(interaction):
         return
 
     if (
@@ -1482,20 +1416,7 @@ class ResetConfirmView(discord.ui.View):
 @discord.app_commands.guild_only()
 async def reset_leaderboard_cmd(interaction: discord.Interaction):
     # default_permissions는 서버 설정에서 바뀔 수 있으므로 런타임에서 한 번 더 확인
-    if not (
-        interaction.guild
-        and isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 명령어는 서버 관리자만 사용할 수 있어요.",
-            ),
-            ephemeral=True,
-        )
+    if not await require_guild_admin(interaction):
         return
 
     await interaction.response.send_message(
