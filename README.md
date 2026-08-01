@@ -47,6 +47,9 @@
 - `/감독대시보드설치` : **서버 관리자 전용.** 현재 채널에 관리자 감독 대시보드를 설치하거나 갱신합니다.
 - `/대시보드아이콘설치` : **서버 관리자 전용.** 전용 아이콘 21종 중 서버에 없는 항목만
   커스텀 이모지로 등록하고 두 대시보드에 적용합니다.
+- `/퀴즈봇상태점검` : **서버 관리자 전용.** DB 무결성·스키마, 문제 풀, 활성 세션,
+  퀴즈/감독 채널 권한과 공개 여부, 대시보드 등록, 전용 아이콘 상태를 읽기 전용으로 점검합니다.
+  결과는 실행한 관리자에게만 표시됩니다.
 - `/히든상품후보 [기간일]` : **서버 관리자 전용.** 관리자 검토 채널에서 최근 기간의
   최다 완주 · 참여 일수 · 성장 폭 · 언더독 · PvP/PvE 올라운더 후보를 확인합니다
   (`기간일` 기본 30일, 최대 365일).
@@ -109,6 +112,7 @@ tarkov_quiz_bot/
 ├── bot.py                     # Discord 버튼 UI, 로그, 명령어
 ├── admin_log.py               # 관리자 관전 로그 생성·일괄 갱신
 ├── interaction_access.py      # 관리자 권한 검사·공통 오류 응답
+├── operations_check.py        # 관리자용 읽기 전용 운영 상태 점검
 ├── quiz_session.py            # 세션 상태와 활성 세션 레지스트리
 ├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
@@ -132,6 +136,7 @@ tarkov_quiz_bot/
 │   ├── test_dashboard_installation.py # 수동 설치·권한·HTTP 오류 테스트
 │   ├── test_interaction_access.py # 관리자 권한·오류 응답 테스트
 │   ├── test_load_test.py      # 합성 부하 검증의 격리·집계 테스트
+│   ├── test_operations_check.py # DB·채널·대시보드 상태 표시 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_quiz_lifecycle.py # 시작·포기·동시 세션 회귀 테스트
@@ -219,7 +224,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 python check_questions.py
 python load_test.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py operations_check.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
 ruff check .
 ```
 
