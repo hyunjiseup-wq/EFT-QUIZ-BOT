@@ -427,6 +427,38 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.edit_message.assert_not_called()
         self.assertEqual(session.message, "updated-message")
 
+    async def test_stale_answer_callback_is_ignored_before_scoring(self):
+        question = {
+            "difficulty": "general",
+            "question": "테스트 문제",
+            "choices": ["정답", "오답1", "오답2", "오답3"],
+            "answer": 0,
+            "explanation": "해설",
+        }
+        session = bot.QuizSession(
+            mode="pvp",
+            guild_id=10,
+            user_id=1,
+            username="테스터",
+            channel_id=20,
+            questions=[question, question],
+        )
+        view = bot.AnswerView(session)
+        session.index = 1
+        interaction = Mock()
+        interaction.response.defer = AsyncMock()
+
+        with (
+            patch.dict(bot.active_sessions, {(10, 1): session}, clear=True),
+            patch.object(bot.quiz_scoring, "score_answer") as score_answer,
+        ):
+            await view.handle_answer(interaction, 0)
+
+        interaction.response.defer.assert_awaited_once()
+        score_answer.assert_not_called()
+        self.assertEqual(session.score, 0)
+        self.assertEqual(session.correct_count, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
