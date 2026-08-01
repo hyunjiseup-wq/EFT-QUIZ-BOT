@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import discord
 
@@ -70,8 +70,9 @@ class AdminLogAsyncTests(unittest.IsolatedAsyncioTestCase):
             "logger": Mock(),
         }
 
-        await admin_log.start_admin_log(client, session, **helpers)
-        await send_started.wait()
+        with patch.object(admin_log.config, "ADMIN_LOG_CHANNEL_ID", 30):
+            await admin_log.start_admin_log(client, session, **helpers)
+        await asyncio.wait_for(send_started.wait(), timeout=1)
         session.per_difficulty["general"] = [0, 1]
         await admin_log.update_admin_log(
             session,
