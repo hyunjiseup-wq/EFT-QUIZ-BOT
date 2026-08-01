@@ -167,8 +167,9 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
   the running bot, startup stops before older code can modify it.
 - A ranking index is maintained, and hidden-reward candidates are aggregated as a stream rather
   than loading every attempt into memory at once.
-- The admin spectator message is edited every five questions by default and once at completion;
-  every per-question detail is still retained for the final log.
+- Admin spectator-log rate-limit waits run in the background, and changes accumulated while waiting
+  are coalesced into the latest state. Answers are retained before the message exists, edits are
+  batched every five questions by default, and completion or give-up is flushed last.
 - Concurrent active sessions are capped at 250 per server by default. Existing quizzes continue;
   only new starts wait until capacity becomes available.
 - Concurrent starts by the same user reserve the first session before sending, while failed start
