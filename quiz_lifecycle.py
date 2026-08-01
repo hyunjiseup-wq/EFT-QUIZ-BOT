@@ -11,6 +11,30 @@ from quiz_session import (
 )
 
 
+async def abort_quiz_session(
+    session: QuizSession,
+    *,
+    finalize_admin_log: Callable,
+    reason: str,
+    logger: logging.Logger,
+) -> bool:
+    """예상 밖 처리 오류가 난 활성 세션을 한 번만 중단하고 정리한다."""
+    async with session.transition_lock:
+        if session.finished:
+            return False
+        try:
+            await finalize_admin_log(session, aborted=True, reason=reason)
+        except Exception:
+            logger.exception(
+                "오류 세션 관리자 로그 정리 실패 (guild=%s, user=%s)",
+                session.guild_id,
+                session.user_id,
+            )
+        finally:
+            cleanup_session(session)
+    return True
+
+
 async def start_quiz(
     interaction: discord.Interaction,
     mode: str,
@@ -146,17 +170,19 @@ async def give_up_quiz(
         )
         return False
 
+    # 관리자 로그 마감과 기존 화면 편집 전에 최초 응답을 확보한다.
+    await interaction.response.defer(ephemeral=True)
+
     async with session.transition_lock:
         if not session.is_active():
             cleanup_session(session)
-            await interaction.response.send_message(
-                quiz_alert_text(
+            await interaction.edit_original_response(
+                content=quiz_alert_text(
                     interaction.guild_id,
                     "tq_complete",
                     "🏁",
                     "이미 종료된 퀴즈예요.",
                 ),
-                ephemeral=True,
             )
             return False
         try:
@@ -189,13 +215,12 @@ async def give_up_quiz(
                 error,
             )
 
-    await interaction.response.send_message(
-        quiz_alert_text(
+    await interaction.edit_original_response(
+        content=quiz_alert_text(
             interaction.guild_id,
             "tq_exit",
             "🚪",
             "퀴즈를 포기했어요. `/pvp퀴즈` 또는 `/pve퀴즈`로 다시 도전할 수 있어요!",
         ),
-        ephemeral=True,
     )
     return True

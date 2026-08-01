@@ -21,7 +21,9 @@ def make_interaction(user_id: int = 1):
     interaction.channel_id = 20
     interaction.user = SimpleNamespace(id=user_id, display_name=f"테스터{user_id}")
     interaction.client = Mock()
+    interaction.response.defer = AsyncMock()
     interaction.response.send_message = AsyncMock()
+    interaction.edit_original_response = AsyncMock()
     interaction.original_response = AsyncMock(return_value=f"message-{user_id}")
     return interaction
 
@@ -57,6 +59,24 @@ def start_kwargs(**overrides):
 
 
 class QuizLifecycleTests(unittest.IsolatedAsyncioTestCase):
+    async def test_abort_cleans_session_even_if_admin_log_fails(self):
+        session = make_session()
+        logger = Mock()
+
+        with patch.dict(active_sessions, {(10, 1): session}, clear=True):
+            aborted = await quiz_lifecycle.abort_quiz_session(
+                session,
+                finalize_admin_log=AsyncMock(side_effect=RuntimeError("log failed")),
+                reason="답변 처리 오류",
+                logger=logger,
+            )
+
+            self.assertNotIn((10, 1), active_sessions)
+
+        self.assertTrue(aborted)
+        self.assertTrue(session.finished)
+        logger.exception.assert_called_once()
+
     async def test_stale_session_is_reclaimed_before_new_start(self):
         stale = make_session()
         stale.finished = True
@@ -187,7 +207,9 @@ class QuizLifecycleTests(unittest.IsolatedAsyncioTestCase):
         session.message.edit.assert_awaited_once_with(
             content="🚪 퀴즈를 포기했어요.", embed=None, view=None
         )
-        interaction.response.send_message.assert_awaited_once()
+        interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        interaction.edit_original_response.assert_awaited_once()
+        interaction.response.send_message.assert_not_awaited()
         logger.exception.assert_called_once()
 
     async def test_give_up_reclaims_inactive_registered_session(self):
@@ -207,7 +229,11 @@ class QuizLifecycleTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn((10, 1), active_sessions)
 
         self.assertFalse(result)
-        self.assertIn("이미 종료", interaction.response.send_message.await_args.args[0])
+        interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        self.assertIn(
+            "이미 종료",
+            interaction.edit_original_response.await_args.kwargs["content"],
+        )
 
 
 if __name__ == "__main__":

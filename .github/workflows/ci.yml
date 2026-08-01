@@ -2,6 +2,7 @@ name: Quiz bot checks
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:

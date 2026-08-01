@@ -37,6 +37,25 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fake_bot.add_view.call_count, 2)
         log_exception.assert_called_once()
 
+    def test_run_bot_reuses_root_logging_without_discord_handler(self):
+        with (
+            patch.object(bot.config, "DISCORD_TOKEN", "test-token"),
+            patch.object(bot.bot, "run") as run,
+        ):
+            bot.run_bot()
+
+        run.assert_called_once_with("test-token", log_handler=None)
+
+    def test_run_bot_rejects_missing_token_before_connecting(self):
+        with (
+            patch.object(bot.config, "DISCORD_TOKEN", ""),
+            patch.object(bot.bot, "run") as run,
+            self.assertRaisesRegex(RuntimeError, "DISCORD_TOKEN"),
+        ):
+            bot.run_bot()
+
+        run.assert_not_called()
+
     def test_dashboard_view_is_persistent_and_custom_ids_are_unique(self):
         view = bot.QuizDashboardView()
         custom_ids = [item.custom_id for item in view.children]
@@ -458,6 +477,89 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         score_answer.assert_not_called()
         self.assertEqual(session.score, 0)
         self.assertEqual(session.correct_count, 0)
+
+    async def test_answer_view_error_aborts_session_and_reports_error(self):
+        question = {
+            "difficulty": "general",
+            "question": "테스트 문제",
+            "choices": ["정답", "오답1", "오답2", "오답3"],
+            "answer": 0,
+            "explanation": "해설",
+        }
+        session = bot.QuizSession(
+            mode="pvp",
+            guild_id=10,
+            user_id=1,
+            username="테스터",
+            channel_id=20,
+            questions=[question],
+        )
+        session.message = SimpleNamespace(edit=AsyncMock())
+        view = bot.AnswerView(session)
+        interaction = Mock()
+        error = RuntimeError("answer failed")
+
+        with (
+            patch.dict(bot.active_sessions, {(10, 1): session}, clear=True),
+            patch.object(bot, "finalize_admin_log", new=AsyncMock()) as finalize,
+            patch.object(bot, "report_interaction_error", new=AsyncMock()) as report,
+        ):
+            await view.on_error(interaction, error, SimpleNamespace(custom_id="answer-a"))
+
+            self.assertNotIn((10, 1), bot.active_sessions)
+
+        finalize.assert_awaited_once_with(
+            session,
+            aborted=True,
+            reason="답변 처리 오류",
+        )
+        session.message.edit.assert_awaited_once()
+        report.assert_awaited_once_with(
+            interaction,
+            error,
+            context="answer:answer-a",
+        )
+
+    async def test_timeout_error_aborts_session(self):
+        question = {
+            "difficulty": "general",
+            "question": "테스트 문제",
+            "choices": ["정답", "오답1", "오답2", "오답3"],
+            "answer": 0,
+            "explanation": "해설",
+        }
+        session = bot.QuizSession(
+            mode="pvp",
+            guild_id=10,
+            user_id=1,
+            username="테스터",
+            channel_id=20,
+            questions=[question],
+        )
+        session.message = SimpleNamespace(edit=AsyncMock())
+        view = bot.AnswerView(session)
+
+        with (
+            patch.dict(bot.active_sessions, {(10, 1): session}, clear=True),
+            patch.object(
+                bot,
+                "update_admin_log",
+                new=AsyncMock(side_effect=RuntimeError("timeout failed")),
+            ),
+            patch.object(bot, "finalize_admin_log", new=AsyncMock()) as finalize,
+            patch.object(bot.log, "exception") as log_exception,
+        ):
+            await view.on_timeout()
+
+            self.assertNotIn((10, 1), bot.active_sessions)
+
+        finalize.assert_awaited_once_with(
+            session,
+            aborted=True,
+            reason="시간 초과 처리 오류",
+        )
+        session.message.edit.assert_awaited_once()
+        log_exception.assert_called_once()
 
 
 if __name__ == "__main__":

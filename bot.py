@@ -554,6 +554,46 @@ class AnswerView(discord.ui.View):
             return False
         return True
 
+    async def _abort_after_processing_error(self, reason: str) -> None:
+        aborted = await quiz_lifecycle.abort_quiz_session(
+            self.session,
+            finalize_admin_log=finalize_admin_log,
+            reason=reason,
+            logger=log,
+        )
+        if not aborted or self.session.message is None:
+            return
+        try:
+            await self.session.message.edit(
+                content=(
+                    f"{quiz_icon_text(self.session.guild_id, 'tq_warning', '⚠️')} "
+                    "퀴즈 처리 오류로 세션을 종료했어요. 다시 시작해주세요."
+                ),
+                embed=None,
+                view=None,
+            )
+        except discord.HTTPException as error:
+            log.warning(
+                "오류 종료된 퀴즈 화면 정리 실패 (guild=%s, user=%s): %s",
+                self.session.guild_id,
+                self.session.user_id,
+                error,
+            )
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ):
+        self.stop()
+        await self._abort_after_processing_error("답변 처리 오류")
+        await report_interaction_error(
+            interaction,
+            error,
+            context=f"answer:{getattr(item, 'custom_id', 'unknown')}",
+        )
+
     async def handle_answer(self, interaction: discord.Interaction, display_index: int):
         # 관리자 로그 API가 느리더라도 Discord의 3초 인터랙션 응답 제한을 넘기지 않는다.
         # defer에 실패한 경우에는 뷰의 제한시간 처리가 계속될 수 있도록 stop보다 먼저 호출한다.
@@ -581,21 +621,29 @@ class AnswerView(discord.ui.View):
 
     async def on_timeout(self):
         session = self.session
-        async with session.transition_lock:
-            # 이미 답변 처리됐거나 다음 문제로 넘어간 경우 아무것도 하지 않음
-            if not session.is_active() or session.index != self.question_index:
-                return
+        try:
+            async with session.transition_lock:
+                # 이미 답변 처리됐거나 다음 문제로 넘어간 경우 아무것도 하지 않음
+                if not session.is_active() or session.index != self.question_index:
+                    return
 
-            scored = quiz_scoring.score_timeout(session)
-            result_text = build_result_text(timed_out=True, guild_id=session.guild_id)
+                scored = quiz_scoring.score_timeout(session)
+                result_text = build_result_text(timed_out=True, guild_id=session.guild_id)
 
-            await update_admin_log(
-                session,
-                scored.question,
-                scored.is_correct,
-                timed_out=scored.timed_out,
+                await update_admin_log(
+                    session,
+                    scored.question,
+                    scored.is_correct,
+                    timed_out=scored.timed_out,
+                )
+                await advance_or_finish(None, session, result_text)
+        except Exception:
+            log.exception(
+                "퀴즈 시간 초과 처리 실패 (guild=%s, user=%s)",
+                session.guild_id,
+                session.user_id,
             )
-            await advance_or_finish(None, session, result_text)
+            await self._abort_after_processing_error("시간 초과 처리 오류")
 
 
 async def edit_session_message(session: QuizSession, interaction, **kwargs) -> bool:
@@ -1170,7 +1218,13 @@ async def on_app_command_error(
     )
 
 
-if __name__ == "__main__":
+def run_bot() -> None:
     if not config.DISCORD_TOKEN:
         raise RuntimeError("DISCORD_TOKEN이 설정되지 않았습니다. .env 파일을 확인하세요.")
-    bot.run(config.DISCORD_TOKEN)
+    # logging.basicConfig가 이미 루트 핸들러를 구성했으므로 discord.py의 기본 핸들러를
+    # 추가하지 않는다. 둘을 함께 쓰면 discord 로그가 두 번 출력될 수 있다.
+    bot.run(config.DISCORD_TOKEN, log_handler=None)
+
+
+if __name__ == "__main__":
+    run_bot()
