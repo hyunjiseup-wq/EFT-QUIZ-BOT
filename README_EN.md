@@ -179,7 +179,9 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 - Dashboard versions are not shown in the UI. Internal button IDs and legacy v1/v2 footers remain
   recognizable, so older messages are updated in place to a footer-free dashboard.
 - `python load_test.py` creates 8,500 users and 25,500 attempts in a temporary database, never the
-  operating database, then checks public stats, rankings, reward reports, and 200 concurrent reads.
+  operating database. It checks public stats, rankings, reward reports, 200 concurrent reads, 250
+  reserved sessions, rejection of the 251st start, and complete session cleanup. Use `--sessions`
+  to change the session load.
 
 `MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
 limit is the number of quizzes active at the same instant, not the Discord server's member count.
