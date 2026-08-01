@@ -47,6 +47,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 - `/감독대시보드설치` (install-supervisor-dashboard): **Server admin only.** Installs or refreshes the supervisor dashboard in the current channel.
 - `/대시보드아이콘설치` (install-dashboard-icons): **Server admin only.** Uploads any missing
   dashboard icons as server custom emojis and applies them to both dashboards.
+- `/퀴즈봇상태점검` (operations-check): **Server admin only.** Performs a read-only check of
+  database integrity/schema, question pools, active sessions, quiz/supervisor channel permissions
+  and visibility, dashboard registration, and custom icons. Only the invoking admin sees it.
 - `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
   for most completions, active days, improvement, underdog, and dual-mode participation in the
   admin review channel (30 days by default, up to 365).
@@ -112,6 +115,7 @@ tarkov_quiz_bot/
 ├── bot.py                     # Discord button UI, logging, and commands
 ├── admin_log.py               # Admin spectator-log creation and batched updates
 ├── interaction_access.py      # Admin checks and shared interaction errors
+├── operations_check.py        # Read-only admin operations status checks
 ├── quiz_session.py            # Session state and active-session registry
 ├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── dashboard_manager.py       # Dashboard lookup, pinning, and emoji-cache helpers
@@ -135,6 +139,7 @@ tarkov_quiz_bot/
 │   ├── test_dashboard_installation.py # Manual install, permission, and HTTP error tests
 │   ├── test_interaction_access.py # Admin access and error-response tests
 │   ├── test_load_test.py      # Synthetic-load isolation and aggregation tests
+│   ├── test_operations_check.py # DB, channel, and dashboard-status tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_quiz_lifecycle.py # Start, give-up, and concurrent-session tests
@@ -227,7 +232,7 @@ refuses to run with invalid questions.
 python check_questions.py
 python load_test.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py operations_check.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
 ruff check .
 ```
 

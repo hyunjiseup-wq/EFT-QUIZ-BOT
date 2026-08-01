@@ -10,6 +10,7 @@ import dashboard_icon_installer
 import dashboard_installation
 import database
 import interaction_access
+import operations_check
 import quiz_completion
 import quiz_icons
 import quiz_lifecycle
@@ -1062,6 +1063,55 @@ async def refresh_configured_dashboards(
         upsert_supervisor_dashboard=upsert_supervisor_dashboard,
         logger=log,
     )
+
+
+@bot.tree.command(
+    name="퀴즈봇상태점검",
+    description="[관리자 전용] DB·채널 권한·대시보드·세션 운영 상태를 점검합니다",
+)
+@discord.app_commands.default_permissions(administrator=True)
+@discord.app_commands.guild_only()
+async def operations_check_cmd(interaction: discord.Interaction):
+    if not await require_guild_admin(interaction):
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    try:
+        db_status = await asyncio.to_thread(
+            database.get_operational_status,
+            interaction.guild_id,
+        )
+        db_error = False
+    except Exception:
+        log.exception("운영 상태 DB 점검 실패 (guild=%s)", interaction.guild_id)
+        db_status = None
+        db_error = True
+
+    guild = interaction.guild
+    checks = operations_check.collect_operations_checks(
+        bot=bot,
+        guild=guild,
+        db_status=db_status,
+        db_error=db_error,
+        quiz_channel_id=config.QUIZ_CHANNEL_ID,
+        admin_channel_id=config.ADMIN_LOG_CHANNEL_ID,
+        total_questions=len(ALL_QUESTIONS),
+        pvp_pool_size=sum(len(pool) for pool in QUESTIONS_BY_MODE["pvp"].values()),
+        pve_pool_size=sum(len(pool) for pool in QUESTIONS_BY_MODE["pve"].values()),
+        active_session_count=count_active_sessions(interaction.guild_id),
+        max_active_sessions=config.MAX_ACTIVE_SESSIONS_PER_GUILD,
+        missing_icons=missing_quiz_emoji_names(guild.emojis),
+        total_icons=len(QUIZ_EMOJI_ASSETS),
+    )
+    embed = operations_check.build_operations_check_embed(checks)
+    decorate_embed(
+        embed,
+        "타르코프 퀴즈봇 운영 상태",
+        "tq_sessions",
+        "🛰️",
+        guild_id=interaction.guild_id,
+    )
+    await interaction.edit_original_response(embed=embed)
 
 
 @bot.tree.command(

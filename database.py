@@ -391,6 +391,43 @@ def get_public_stats(guild_id: int) -> dict:
     }
 
 
+def get_operational_status(guild_id: int) -> dict:
+    """운영 상태 점검용 DB 정보를 읽기 전용으로 반환한다."""
+    guild = str(guild_id)
+    with closing(_connect()) as conn:
+        quick_check = [row[0] for row in conn.execute("PRAGMA quick_check")]
+        schema_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        leaderboard_rows = conn.execute(
+            "SELECT COUNT(*) FROM leaderboard WHERE guild_id = ?",
+            (guild,),
+        ).fetchone()[0]
+        attempt_rows = conn.execute(
+            "SELECT COUNT(*) FROM quiz_attempts WHERE guild_id = ?",
+            (guild,),
+        ).fetchone()[0]
+        dashboard_rows = conn.execute(
+            """
+            SELECT kind, channel_id, message_id
+            FROM dashboard_messages
+            WHERE guild_id = ?
+            """,
+            (guild,),
+        ).fetchall()
+
+    return {
+        "integrity_ok": quick_check == ["ok"],
+        "integrity_result": quick_check,
+        "schema_version": schema_version,
+        "expected_schema_version": SCHEMA_VERSION,
+        "leaderboard_rows": leaderboard_rows,
+        "attempt_rows": attempt_rows,
+        "dashboards": {
+            kind: (int(channel_id), int(message_id))
+            for kind, channel_id, message_id in dashboard_rows
+        },
+    }
+
+
 def get_hidden_reward_candidates(
     guild_id: int,
     since: str,

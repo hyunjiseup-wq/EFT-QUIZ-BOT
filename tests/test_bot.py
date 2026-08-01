@@ -19,6 +19,11 @@ def empty_async_iterator():
 
 
 class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
+    def test_operations_check_command_is_registered_once(self):
+        command_names = [command.name for command in bot.bot.tree.get_commands()]
+
+        self.assertEqual(command_names.count("퀴즈봇상태점검"), 1)
+
     async def test_setup_hook_keeps_bot_running_when_command_sync_fails(self):
         response = Mock(status=503, reason="Service Unavailable", headers={})
         sync_error = bot.discord.HTTPException(response, "temporary failure")

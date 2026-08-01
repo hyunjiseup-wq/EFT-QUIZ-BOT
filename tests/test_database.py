@@ -10,6 +10,25 @@ import database
 
 
 class DatabaseTests(unittest.TestCase):
+    def test_operational_status_is_read_only_and_scoped_to_guild(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "점검대상", 100, 4, 5)
+                database.record_result(20, "pvp", 2, "다른서버", 200, 5, 5)
+                database.save_dashboard_message(10, "quiz", 30, 300)
+
+                status = database.get_operational_status(10)
+                status_again = database.get_operational_status(10)
+
+            self.assertTrue(status["integrity_ok"])
+            self.assertEqual(status["schema_version"], database.SCHEMA_VERSION)
+            self.assertEqual(status["leaderboard_rows"], 1)
+            self.assertEqual(status["attempt_rows"], 1)
+            self.assertEqual(status["dashboards"], {"quiz": (30, 300)})
+            self.assertEqual(status_again, status)
+
     def test_dashboard_message_registry_is_isolated_by_guild_and_kind(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "leaderboard.db"
