@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from datetime import datetime, timedelta, timezone
 
 import discord
@@ -8,6 +7,7 @@ import discord
 import admin_log
 import config
 import database
+import quiz_completion
 import quiz_presenters
 import quiz_scoring
 from dashboard_manager import (
@@ -609,79 +609,27 @@ class AnswerView(discord.ui.View):
 
 
 async def edit_session_message(session: QuizSession, interaction, **kwargs) -> bool:
-    """응시자 세션 메시지를 수정한다. 실패(토큰 만료 등) 시 False를 반환하고 세션을 정리한다."""
-    try:
-        if interaction is not None:
-            if interaction.response.is_done():
-                await interaction.edit_original_response(**kwargs)
-            else:
-                await interaction.response.edit_message(**kwargs)
-            session.message = await interaction.original_response()
-        elif session.message:
-            await session.message.edit(**kwargs)
-        else:
-            return False
-        return True
-    except discord.HTTPException as e:
-        # ephemeral 메시지는 최초 인터랙션 토큰이 만료(약 15분)되면 봇이 임의로 수정할 수 없음
-        log.warning(f"세션 메시지 수정 실패 (user={session.user_id}): {e}")
-        await finalize_admin_log(session, aborted=True, reason="메시지 수정 실패로 중단")
-        cleanup_session(session)
-        return False
+    return await quiz_completion.edit_session_message(
+        session,
+        interaction,
+        finalize_admin_log=finalize_admin_log,
+        logger=log,
+        **kwargs,
+    )
 
 
 async def advance_or_finish(interaction, session: QuizSession, result_text: str):
-    session.index += 1
-
-    if session.index >= session.total:
-        embed = build_final_embed(session)
-        # DB 쓰기는 스레드로 분리해 이벤트 루프 블로킹 방지
-        try:
-            await asyncio.to_thread(
-                database.record_result,
-                session.guild_id,
-                session.mode,
-                session.user_id,
-                session.username,
-                session.score,
-                session.correct_count,
-                session.total,
-                timed_out_count=session.timed_out_count,
-                duration_seconds=time.monotonic() - session.started_at_monotonic,
-            )
-        except Exception:
-            log.exception(
-                "퀴즈 결과 저장 실패 (guild=%s, user=%s)", session.guild_id, session.user_id
-            )
-            await edit_session_message(
-                session,
-                interaction,
-                content=(
-                    f"{quiz_icon_text(session.guild_id, 'tq_warning', '⚠️')} "
-                    "퀴즈는 완료됐지만 기록 저장에 실패했습니다. 관리자에게 문의해주세요."
-                ),
-                embed=embed,
-                view=None,
-            )
-            await finalize_admin_log(session, aborted=True, reason="기록 저장 실패")
-            cleanup_session(session)
-            return
-
-        updated = await edit_session_message(
-            session, interaction, content=result_text, embed=embed, view=None
-        )
-        if updated:
-            await finalize_admin_log(session, aborted=False)
-        cleanup_session(session)
-        return
-
-    next_embed = build_question_embed(session)
-    next_view = AnswerView(session)
-    ok = await edit_session_message(
-        session, interaction, content=result_text, embed=next_embed, view=next_view
+    await quiz_completion.advance_or_finish(
+        interaction,
+        session,
+        result_text,
+        build_final_embed=build_final_embed,
+        build_question_embed=build_question_embed,
+        answer_view_factory=AnswerView,
+        finalize_admin_log=finalize_admin_log,
+        quiz_icon_text=quiz_icon_text,
+        logger=log,
     )
-    if not ok:
-        next_view.stop()
 
 
 def build_final_embed(session: QuizSession) -> discord.Embed:

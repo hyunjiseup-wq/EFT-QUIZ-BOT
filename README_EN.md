@@ -114,6 +114,7 @@ tarkov_quiz_bot/
 ├── quiz_session.py            # Session state and active-session registry
 ├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── dashboard_manager.py       # Dashboard lookup, pinning, and emoji-cache helpers
+├── quiz_completion.py         # Question transitions, result storage, and failure cleanup
 ├── quiz_presenters.py         # Question, submission, and final-result presentation
 ├── quiz_scoring.py            # Choice mapping, scoring, and timeout state changes
 ├── quiz_reports.py            # Ranking, statistics, and hidden-reward embeds
@@ -126,6 +127,7 @@ tarkov_quiz_bot/
 ├── tests/
 │   ├── test_admin_log.py      # Admin spectator-log and embed-limit tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
+│   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
 │   ├── test_project_config.py # pyproject/requirements dependency consistency
 │   ├── test_quiz_presenters.py # Quiz presentation and information-hiding tests
@@ -198,7 +200,7 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 
