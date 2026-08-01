@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ],
+  "unwantedRecommendations": [
+    "donjayamanne.python-environment-manager",
+    "donjayamanne.python-extension-pack",
+    "visualstudioexptteam.vscodeintellicode"
+  ]
+}

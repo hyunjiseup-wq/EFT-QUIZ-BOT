@@ -31,6 +31,7 @@ REQUIRED_FIELDS = (
     "answer",
     "explanation",
 )
+QUESTION_MODES = ("common", "pvp", "pve")
 
 
 class QuestionDataError(ValueError):
@@ -111,6 +112,13 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         else:
             difficulty_counts[difficulty] += 1
 
+        mode = question.get("mode", "common")
+        if mode not in QUESTION_MODES:
+            errors.append(
+                f"{label}: 알 수 없는 mode '{mode}' "
+                f"(허용: {', '.join(QUESTION_MODES)})"
+            )
+
         category = question.get("category")
         if category not in CATEGORIES:
             errors.append(f"{label}: 알 수 없는 파트 '{category}'")
@@ -151,6 +159,31 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         ):
             errors.append(f"난이도 '{difficulty}' 문제 부족: {available}개/필요 {required_count}개")
 
+    # 전체 수량이 충분해도 특정 모드의 출제 풀만 부족할 수 있다. 그 경우 봇 시작 시점이
+    # 아니라 해당 모드로 퀴즈를 시작하는 순간에야 실패하므로, 모드별로도 미리 검사한다.
+    for mode in ("pvp", "pve"):
+        mode_counts = {difficulty: 0 for difficulty in session_counts}
+        for raw_question in questions:
+            if not isinstance(raw_question, dict):
+                continue
+            if raw_question.get("mode", "common") not in {"common", mode}:
+                continue
+            difficulty = raw_question.get("difficulty")
+            if difficulty in mode_counts:
+                mode_counts[difficulty] += 1
+
+        for difficulty, required_count in session_counts.items():
+            available = mode_counts[difficulty]
+            if (
+                isinstance(required_count, int)
+                and not isinstance(required_count, bool)
+                and available < required_count
+            ):
+                errors.append(
+                    f"{mode.upper()} 모드 난이도 '{difficulty}' 문제 부족: "
+                    f"{available}개/필요 {required_count}개"
+                )
+
     return errors
 
 
@@ -168,6 +201,20 @@ def group_by_difficulty(questions: Sequence[dict]) -> dict[str, list[dict]]:
     for question in questions:
         grouped.setdefault(question["difficulty"], []).append(question)
     return grouped
+
+
+def filter_questions_for_mode(
+    questions: Sequence[dict],
+    mode: str,
+) -> list[dict]:
+    """공통 문제와 요청한 게임 모드 전용 문제만 반환한다."""
+    if mode not in {"pvp", "pve"}:
+        raise ValueError("mode는 'pvp' 또는 'pve'여야 합니다.")
+    return [
+        question
+        for question in questions
+        if question.get("mode", "common") in {"common", mode}
+    ]
 
 
 def select_session_questions(

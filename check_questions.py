@@ -13,7 +13,14 @@
 import sys
 
 import config
-from question_bank import CATEGORIES, QuestionDataError, load_questions, validate_questions
+from question_bank import (
+    CATEGORIES,
+    QUESTION_MODES,
+    QuestionDataError,
+    filter_questions_for_mode,
+    load_questions,
+    validate_questions,
+)
 
 
 def main():
@@ -24,6 +31,16 @@ def main():
         raise QuestionDataError(errors)
 
     print(f"총 {len(questions)}문제")
+    print(
+        "모드별 구성: "
+        + " · ".join(
+            f"{mode} {sum(q.get('mode', 'common') == mode for q in questions)}문제"
+            for mode in QUESTION_MODES
+        )
+    )
+    for mode in ("pvp", "pve"):
+        playable = filter_questions_for_mode(questions, mode)
+        print(f"  {mode.upper()} 출제 가능: {len(playable)}문제 (공통 포함)")
     by_diff = {}
     for q in questions:
         by_diff.setdefault(q.get("difficulty"), []).append(q)

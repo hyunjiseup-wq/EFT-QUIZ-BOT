@@ -3,7 +3,7 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **General 87 · Medium 85 · Hard 111 · Expert 80 (363 questions total)**.
+It uses a 4-choice button UI, and `questions.json` currently holds **446 questions**.
 Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -12,7 +12,22 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 ## How it works
 
-- `/타르코프퀴즈시작` (start-quiz): Starts the quiz with an ephemeral message visible only to the person who ran the command.
+- The public **player dashboard** provides **Start PvP · Start PvE · Tutorial · mode ranking · personal record** buttons.
+  When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup.
+  An administrator can also run `/퀴즈대시보드설치` in a channel; running it again updates
+  an existing pinned dashboard (or one found in the latest 100 messages) instead of posting a duplicate.
+  The bot pins an installed or refreshed dashboard automatically, and its buttons survive restarts.
+- A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
+  It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
+  rankings. Only server administrators can use its buttons.
+- Both dashboards and quiz notifications support 21 original Tarkov-inspired icons from
+  `assets/dashboard_icons/` (ten dashboard icons and eleven notification icons).
+  An administrator can run `/대시보드아이콘설치` once to upload only missing custom emojis and
+  immediately refresh the configured player and supervisor dashboards. Existing emojis with the
+  reserved names are reused, never deleted or overwritten; default Unicode emoji remain as fallback.
+- `/pvp퀴즈`: Starts a quiz using common questions plus PvP-only questions.
+- `/pve퀴즈`: Starts a quiz using common questions plus PvE-only questions.
+  The quiz runs in an ephemeral message visible only to the person who ran the command.
   If several people run the command in the same channel at once, each only sees their own screen — no one sees anyone else's progress.
   Setting a channel ID in `.env`'s `QUIZ_CHANNEL_ID` restricts quiz starts to **that channel only**
   (attempts in other channels get redirected there; `0` or unset allows all channels).
@@ -22,22 +37,40 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   Correct/incorrect history and per-difficulty breakdowns are only visible in the admin spectator log.
 - When all questions are answered, the final score and correct-answer count are shown, and the record is saved.
 - `/타르코프퀴즈포기` (give-up): Abandons the quiz in progress (not saved). Use this to quit partway through and start over.
-- `/타르코프퀴즈랭킹` (ranking): Current server's TOP 10 (by best score, public message)
-- `/타르코프퀴즈기록` (my-record): Check your own best/most recent score (ephemeral)
+- `/pvp퀴즈랭킹`, `/pve퀴즈랭킹`: Mode-specific server TOP 10 (by best score, public message)
+- `/퀴즈참가현황` (participation-stats): Public unique participant count and cumulative
+  PvP/PvE completions for the server.
+- `/pvp퀴즈기록`, `/pve퀴즈기록`: Check your own mode-specific best/most recent score (ephemeral)
 - `/타르코프퀴즈랭킹초기화` (reset-ranking): **Server admin only.** Deletes all records and rankings for the server (behind a confirmation button, cannot be undone).
   Regular users don't see this command at all.
+- `/퀴즈대시보드설치` (install-dashboard): **Server admin only.** Installs or refreshes the public dashboard in the current channel.
+- `/감독대시보드설치` (install-supervisor-dashboard): **Server admin only.** Installs or refreshes the supervisor dashboard in the current channel.
+- `/대시보드아이콘설치` (install-dashboard-icons): **Server admin only.** Uploads any missing
+  dashboard icons as server custom emojis and applies them to both dashboards.
+- `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
+  for most completions, active days, improvement, underdog, and dual-mode participation in the
+  admin review channel (30 days by default, up to 365).
 
-Rankings and personal records are isolated per Discord server. On first run against a database created
+Rankings and personal records are isolated by Discord server and PvP/PvE mode. Records created before
+mode separation are preserved under `mode=legacy` and do not appear in the new mode rankings.
+On first run against a database created
 before per-server isolation existed, old rows aren't deleted — they're automatically migrated into a
 legacy area with `guild_id=0`. Since the old database never stored a server ID, those records won't show
 up in any server's actual ranking.
+
+Each future completion is also stored in `quiz_attempts` with its score, correct answers, timeouts,
+duration, and completion time. The existing leaderboard aggregate remains unchanged.
+Improvement, underdog, and active-day candidates therefore start accumulating after this feature is
+deployed. Underdog review excludes zero-correct runs and runs where more than half the questions timed
+out; candidates are never selected automatically and should be reviewed by an administrator.
 
 ## ⚠️ Known limitation: the 15-minute interaction token
 
 Discord won't let a bot edit an ephemeral message on its own once roughly 15 minutes have passed since the
 original interaction. Pressing a button creates a fresh interaction, so that's fine — but **if a session
 sits idle long enough that timeouts keep stacking up**, message updates can start failing past the
-15-minute mark. When that happens the bot auto-cleans the session, so just start over with `/타르코프퀴즈시작`.
+15-minute mark. When that happens the bot auto-cleans the session, so just start over with
+`/pvp퀴즈` or `/pve퀴즈`.
 
 ## ⚠️ A structural Discord limitation — admin spectating
 
@@ -56,6 +89,8 @@ Set a channel ID in `.env`'s `ADMIN_LOG_CHANNEL_ID` to enable this
 
 ## Setup
 
+Python **3.10 or newer** is required. This project uses APIs introduced in discord.py 2.6.
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
@@ -64,21 +99,30 @@ python bot.py
 ```
 
 ### Discord Developer Portal configuration
-- Bot permissions: `applications.commands`, `bot` scope
-- Channel permissions: allow "Send Messages" and "Use Slash Commands" in the quiz channel
+- Bot permissions: `applications.commands`, `bot` scope. Auto-pinning dashboards requires
+  **Manage Messages**; installing custom icons also requires **Create Expressions** or
+  **Manage Emojis and Stickers**.
+- Channel permissions: allow "View Channel", "Send Messages", "Read Message History", and "Use Slash Commands" in the quiz channel
 - Spectator log channel: grant the bot "Send Messages"; hide the channel from regular users
 
 ## File structure
 
 ```
 tarkov_quiz_bot/
-├── bot.py                     # Discord session, button UI, logging, commands
+├── bot.py                     # Discord button UI, logging, and commands
+├── quiz_session.py            # Session state and active-session registry
+├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── question_bank.py           # Question loading, format validation, per-difficulty draw
 ├── config.py                  # Token/channel ID/points/absolute path settings
 ├── database.py                # SQLite leaderboard
 ├── questions.json             # Question pool data
 ├── check_questions.py         # Question stats + patch-volatility check CLI
-├── tests/test_question_bank.py
+├── assets/dashboard_icons/    # 21 transparent 128px Discord UI icons
+├── tests/
+│   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
+│   ├── test_database.py       # DB migration, ranking, and reward-stat tests
+│   ├── test_project_config.py # pyproject/requirements dependency consistency
+│   └── test_question_bank.py  # Question validation, mode filtering, and draw tests
 ├── pyproject.toml
 ├── requirements.txt
 ├── 봇실행.bat                 # Windows launcher; auto-sets up the virtual environment
@@ -90,6 +134,22 @@ tarkov_quiz_bot/
 runtime, so they aren't version-controlled. To keep the database outside of OneDrive sync,
 point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 
+## Large-event protection
+
+- SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
+  much less likely to fail with `database is locked` under bursts.
+- The SQLite `user_version` tracks the database schema. If a database is newer than the running
+  bot, startup stops before older code can modify it.
+- A ranking index is maintained, and hidden-reward candidates are aggregated as a stream rather
+  than loading every attempt into memory at once.
+- The admin spectator message is edited every five questions by default and once at completion;
+  every per-question detail is still retained for the final log.
+- Concurrent active sessions are capped at 250 per server by default. Existing quizzes continue;
+  only new starts wait until capacity becomes available.
+
+`MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
+limit is the number of quizzes active at the same instant, not the Discord server's member count.
+
 ## Adding/editing questions
 
 Add entries to `questions.json` in the following format.
@@ -97,6 +157,7 @@ Add entries to `questions.json` in the following format.
 ```json
 {
   "id": 31,
+  "mode": "common",
   "difficulty": "medium",
   "category": "무기",
   "question": "Question text",
@@ -105,6 +166,10 @@ Add entries to `questions.json` in the following format.
   "explanation": "Explanation of the correct answer (never shown to players; used in the spectator log's wrong-answer record)"
 }
 ```
+
+`mode` may be `common`, `pvp`, or `pve`; if omitted, it defaults to `common`.
+PvP quizzes draw from `common+pvp`, while PvE quizzes draw from `common+pve`.
+When a rule differs by profile or season, state the applicable profile, season, or patch in the question.
 
 `difficulty` is one of `general` / `medium` / `hard` / `expert`, and point values are adjusted in
 `config.py`'s `POINTS` dictionary.
@@ -125,8 +190,14 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py question_bank.py check_questions.py
+python -m py_compile bot.py config.py database.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
+ruff check .
 ```
+
+Pushes and pull requests run the same checks automatically on Python 3.10 and 3.13.
+
+For VS Code, the committed `.vscode/settings.json` selects the project's
+`.venv\\Scripts\\python.exe` and configures `unittest` discovery.
 
 On Windows, `봇실행.bat` first runs the Python inside `.venv` to check its state. If the original
 Python installation was removed and the virtual environment is broken, it deletes that environment
