@@ -76,6 +76,7 @@ QUESTIONS_BY_MODE = {
     for mode in ("pvp", "pve")
 }
 MODE_LABELS = {"pvp": "PvP", "pve": "PvE"}
+# 이전 대시보드를 한 번 찾아 footer 없는 화면으로 갱신하기 위한 내부 호환 marker.
 DASHBOARD_MARKER = "타르코프 퀴즈 대시보드 · v2"
 SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v2"
 LEGACY_DASHBOARD_MARKERS = ("타르코프 퀴즈 대시보드 · v1",)
@@ -183,7 +184,6 @@ def build_dashboard_embed(
         value="아래 **튜토리얼** 버튼에서 진행 방식과 주의사항을 확인하세요.",
         inline=False,
     )
-    embed.set_footer(text=DASHBOARD_MARKER)
     return embed
 
 
@@ -272,7 +272,6 @@ def build_supervisor_dashboard_embed(
         value="아래 버튼은 서버 관리자만 사용할 수 있습니다.",
         inline=False,
     )
-    embed.set_footer(text=SUPERVISOR_DASHBOARD_MARKER)
     return embed
 
 
@@ -907,6 +906,7 @@ async def upsert_dashboard(
         DASHBOARD_MARKER,
         preferred_message_id,
         LEGACY_DASHBOARD_MARKERS,
+        "tarkov_quiz:pvp:start",
     )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = QuizDashboardView(resolved_emojis)
@@ -936,6 +936,7 @@ async def upsert_supervisor_dashboard(
         SUPERVISOR_DASHBOARD_MARKER,
         preferred_message_id,
         LEGACY_SUPERVISOR_DASHBOARD_MARKERS,
+        "tarkov_quiz:supervisor:stats",
     )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = SupervisorDashboardView(resolved_emojis)
