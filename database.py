@@ -8,6 +8,7 @@ from config import DB_PATH
 
 _lock = threading.Lock()
 SQLITE_BUSY_TIMEOUT_MS = 30_000
+SCHEMA_VERSION = 1
 
 
 def _connect() -> sqlite3.Connection:
@@ -21,6 +22,12 @@ def _connect() -> sqlite3.Connection:
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _lock, closing(_connect()) as conn:
+        stored_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if stored_version > SCHEMA_VERSION:
+            raise RuntimeError(
+                "이 DB는 더 새로운 봇에서 생성되었습니다. "
+                f"DB 스키마 버전 {stored_version}, 지원 버전 {SCHEMA_VERSION}"
+            )
         # WAL은 읽기가 쓰기를 막지 않으므로 랭킹 조회와 결과 저장이 몰릴 때 유리하다.
         conn.execute("PRAGMA journal_mode = WAL")
         columns = {row[1]: row for row in conn.execute("PRAGMA table_info(leaderboard)")}
@@ -71,6 +78,15 @@ def init_db():
         current_columns = {row[1] for row in conn.execute("PRAGMA table_info(leaderboard)")}
         if "best_achieved_at" not in current_columns:
             conn.execute("ALTER TABLE leaderboard ADD COLUMN best_achieved_at TEXT")
+        # 중간 버전의 서버별 스키마는 컬럼만 추가하면 기존 행이 NULL로 남는다.
+        # 동점 순위에서 NULL이 가장 먼저 정렬되지 않도록 마지막 플레이 시각으로 보정한다.
+        conn.execute(
+            """
+            UPDATE leaderboard
+            SET best_achieved_at = last_played_at
+            WHERE best_achieved_at IS NULL AND last_played_at IS NOT NULL
+            """
+        )
 
         current_columns = {row[1] for row in conn.execute("PRAGMA table_info(leaderboard)")}
         if "mode" not in current_columns:
@@ -145,6 +161,7 @@ def init_db():
             ON leaderboard (guild_id, mode, best_score DESC, best_achieved_at ASC)
             """
         )
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
 
 
@@ -231,7 +248,9 @@ def get_leaderboard(guild_id: int, mode: str, limit: int = 10):
             SELECT username, best_score, attempts, total_correct, total_questions
             FROM leaderboard
             WHERE guild_id = ? AND mode = ?
-            ORDER BY best_score DESC, best_achieved_at ASC
+            ORDER BY best_score DESC,
+                     best_achieved_at IS NULL ASC,
+                     best_achieved_at ASC
             LIMIT ?
             """,
             (str(guild_id), mode, limit),

@@ -1,7 +1,10 @@
+import struct
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import bot
+import quiz_icons
 
 
 async def async_iterator(*items):
@@ -14,6 +17,24 @@ def empty_async_iterator():
 
 
 class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
+    async def test_setup_hook_keeps_bot_running_when_command_sync_fails(self):
+        response = Mock(status=503, reason="Service Unavailable", headers={})
+        sync_error = bot.discord.HTTPException(response, "temporary failure")
+        fake_bot = SimpleNamespace(
+            tree=SimpleNamespace(sync=AsyncMock(side_effect=sync_error)),
+            add_view=Mock(),
+        )
+
+        with (
+            patch.object(bot.database, "init_db") as init_db,
+            patch.object(bot.log, "exception") as log_exception,
+        ):
+            await bot.QuizBot.setup_hook(fake_bot)
+
+        init_db.assert_called_once_with()
+        self.assertEqual(fake_bot.add_view.call_count, 2)
+        log_exception.assert_called_once()
+
     def test_dashboard_view_is_persistent_and_custom_ids_are_unique(self):
         view = bot.QuizDashboardView()
         custom_ids = [item.custom_id for item in view.children]
@@ -31,6 +52,83 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(supervisor_ids), 5)
         self.assertEqual(len(supervisor_ids), len(set(supervisor_ids)))
         self.assertTrue(quiz_ids.isdisjoint(supervisor_ids))
+
+    def test_dashboard_custom_emoji_mapping_covers_every_button(self):
+        custom_ids = {
+            item.custom_id for item in bot.QuizDashboardView().children
+        } | {
+            item.custom_id for item in bot.SupervisorDashboardView().children
+        }
+
+        self.assertEqual(custom_ids, set(quiz_icons.DASHBOARD_EMOJI_BY_CUSTOM_ID))
+        self.assertTrue(
+            set(quiz_icons.DASHBOARD_EMOJI_BY_CUSTOM_ID.values()).issubset(
+                bot.QUIZ_EMOJI_ASSETS
+            )
+        )
+
+    def test_dashboard_icon_assets_are_discord_ready_rgba_pngs(self):
+        self.assertEqual(bot.validate_quiz_icon_assets(), [])
+        for filename in bot.QUIZ_EMOJI_ASSETS.values():
+            path = bot.QUIZ_ICON_DIR / filename
+            data = path.read_bytes()
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", data[16:26])
+
+            self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), filename)
+            self.assertEqual((width, height), (128, 128), filename)
+            self.assertEqual(bit_depth, 8, filename)
+            self.assertEqual(color_type, 6, filename)  # RGBA
+            self.assertLessEqual(len(data), 256 * 1024, filename)
+
+    def test_quiz_icon_slot_preflight_counts_only_static_emojis(self):
+        existing = [
+            SimpleNamespace(name="tq_pvp_start", animated=False),
+            SimpleNamespace(name="animated_other", animated=True),
+            SimpleNamespace(name="static_other", animated=False),
+        ]
+        guild = SimpleNamespace(emojis=existing, emoji_limit=3)
+
+        missing = bot.missing_quiz_emoji_names(existing)
+
+        self.assertNotIn("tq_pvp_start", missing)
+        self.assertEqual(len(missing), len(bot.QUIZ_EMOJI_ASSETS) - 1)
+        self.assertEqual(bot.available_static_emoji_slots(guild), 1)
+
+    def test_dashboard_view_prefers_registered_custom_emoji(self):
+        emoji = bot.discord.PartialEmoji(name="tq_pvp_start", id=123456)
+        view = bot.QuizDashboardView([emoji])
+        start_button = next(
+            item
+            for item in view.children
+            if item.custom_id == "tarkov_quiz:pvp:start"
+        )
+
+        self.assertEqual(start_button.emoji.id, 123456)
+
+    def test_embed_uses_custom_thumbnail_and_removes_fallback_title_icon(self):
+        emoji = bot.discord.PartialEmoji(name="tq_complete", id=654321)
+        embed = bot.discord.Embed()
+
+        bot.decorate_embed(
+            embed,
+            "퀴즈 완료!",
+            "tq_complete",
+            "🏁",
+            emojis=[emoji],
+        )
+
+        self.assertEqual(embed.title, "퀴즈 완료!")
+        self.assertIn("654321", embed.thumbnail.url)
+
+    def test_result_alerts_keep_unicode_fallback_without_server_icons(self):
+        self.assertTrue(bot.build_result_text(False).startswith("📨"))
+        self.assertTrue(bot.build_result_text(True).startswith("⏰"))
+
+    def test_channel_dashboard_emojis_accepts_discord_tuple_cache(self):
+        emoji = bot.discord.PartialEmoji(name="tq_tutorial", id=789)
+        channel = SimpleNamespace(guild=SimpleNamespace(emojis=(emoji,)))
+
+        self.assertEqual(bot.channel_dashboard_emojis(channel), [emoji])
 
     def test_dashboard_embed_shows_live_quiz_settings(self):
         embed = bot.build_dashboard_embed()
@@ -160,8 +258,53 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
 
         interaction.response.defer.assert_awaited_once_with(ephemeral=True)
         interaction.edit_original_response.assert_awaited_once_with(
-            content="아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!"
+            content="🎯 아직 기록이 없어요. 먼저 퀴즈에 도전해보세요!"
         )
+
+    async def test_leaderboard_remains_available_at_session_limit(self):
+        interaction = Mock()
+        interaction.guild_id = 10
+        interaction.response.defer = AsyncMock()
+        interaction.response.send_message = AsyncMock()
+        interaction.edit_original_response = AsyncMock()
+        session = Mock(guild_id=10, mode="pvp")
+        session.is_active.return_value = True
+
+        with (
+            patch.dict(bot.active_sessions, {(10, 1): session}, clear=True),
+            patch.object(bot.config, "MAX_ACTIVE_SESSIONS_PER_GUILD", 1),
+            patch.object(
+                bot.database,
+                "get_leaderboard",
+                return_value=[("테스터", 100, 1, 4, 5)],
+            ),
+        ):
+            await bot.show_leaderboard(interaction, "pvp", ephemeral=True)
+
+        interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        interaction.response.send_message.assert_not_awaited()
+        interaction.edit_original_response.assert_awaited_once()
+
+    async def test_start_quiz_rejects_new_session_at_guild_limit(self):
+        interaction = Mock()
+        interaction.guild_id = 10
+        interaction.channel_id = bot.config.QUIZ_CHANNEL_ID
+        interaction.user = SimpleNamespace(id=2, display_name="신규 참가자")
+        interaction.response.send_message = AsyncMock()
+        session = Mock(guild_id=10, mode="pvp")
+        session.is_active.return_value = True
+
+        with (
+            patch.dict(bot.active_sessions, {(10, 1): session}, clear=True),
+            patch.object(bot.config, "MAX_ACTIVE_SESSIONS_PER_GUILD", 1),
+            patch.object(bot, "build_session_questions") as build_questions,
+        ):
+            await bot.start_quiz(interaction, "pvp")
+
+        interaction.response.send_message.assert_awaited_once()
+        self.assertTrue(interaction.response.send_message.await_args.kwargs["ephemeral"])
+        build_questions.assert_not_called()
+        self.assertNotIn((10, 2), bot.active_sessions)
 
     def test_active_session_count_is_isolated_by_guild_and_mode(self):
         pvp = Mock(guild_id=10, mode="pvp")
@@ -207,6 +350,25 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
             session.per_difficulty["general"] = [0, 5]
             await bot.update_admin_log(session, question, False, False, "오답1")
             session.admin_log_message.edit.assert_awaited_once()
+
+    async def test_final_admin_log_timeout_is_reported_and_detached(self):
+        session = bot.QuizSession(
+            mode="pvp",
+            guild_id=10,
+            user_id=1,
+            username="테스터",
+            channel_id=20,
+            questions=[],
+        )
+        session.admin_log_message = SimpleNamespace(
+            edit=AsyncMock(side_effect=TimeoutError)
+        )
+
+        with patch.object(bot.log, "warning") as log_warning:
+            await bot.finalize_admin_log(session, aborted=False)
+
+        log_warning.assert_called_once()
+        self.assertIsNone(session.admin_log_message)
 
     def test_leaderboard_line_labels_accumulated_results(self):
         line = bot.format_leaderboard_line("🥇", "테스터", 100, 2, 7, 10)

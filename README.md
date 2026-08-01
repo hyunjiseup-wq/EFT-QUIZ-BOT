@@ -20,6 +20,11 @@
 - 관리자 검토 채널에는 별도의 **감독 대시보드**가 설치됩니다.
   `.env`의 `ADMIN_LOG_CHANNEL_ID`를 기준으로 자동 설치되며 **참가 현황 · 히든 후보 30일 ·
   활성 세션 · PvP/PvE 랭킹** 버튼을 제공합니다. 버튼은 서버 관리자만 사용할 수 있습니다.
+- 두 대시보드와 퀴즈 알림은 `assets/dashboard_icons/`의 타르코프풍 전용 아이콘 21종
+  (대시보드 10종 · 알림 11종)을 지원합니다.
+  서버 관리자가 `/대시보드아이콘설치`를 한 번 실행하면 없는 커스텀 이모지만 등록하고
+  설정된 퀴즈·감독 대시보드를 즉시 갱신합니다. 같은 이름의 기존 이모지는 삭제하거나 덮어쓰지 않으며,
+  아이콘이 설치되지 않은 서버에서는 기존 기본 이모지를 계속 사용합니다.
 - `/pvp퀴즈` : 공통 + 현재 PvP로 분류된 전용/시즌 문제로 퀴즈를 시작합니다.
 - `/pve퀴즈` : 공통 + PvE Zone 전용 문제로 퀴즈를 시작합니다.
   명령어를 실행한 사람에게만 보이는(ephemeral) 메시지로 진행됩니다.
@@ -40,6 +45,8 @@
   일반 유저에게는 명령어 자체가 보이지 않습니다.
 - `/퀴즈대시보드설치` : **서버 관리자 전용.** 현재 채널에 공개 퀴즈 대시보드를 설치하거나 갱신합니다.
 - `/감독대시보드설치` : **서버 관리자 전용.** 현재 채널에 관리자 감독 대시보드를 설치하거나 갱신합니다.
+- `/대시보드아이콘설치` : **서버 관리자 전용.** 전용 아이콘 21종 중 서버에 없는 항목만
+  커스텀 이모지로 등록하고 두 대시보드에 적용합니다.
 - `/히든상품후보 [기간일]` : **서버 관리자 전용.** 관리자 검토 채널에서 최근 기간의
   최다 완주 · 참여 일수 · 성장 폭 · 언더독 · PvP/PvE 올라운더 후보를 확인합니다
   (`기간일` 기본 30일, 최대 365일).
@@ -90,7 +97,8 @@ python bot.py
 ```
 
 ### 디스코드 개발자 포털 설정
-- Bot 권한: `applications.commands`, `bot` scope
+- Bot 권한: `applications.commands`, `bot` scope. 전용 대시보드 아이콘을 설치하려면
+  봇 역할에 **표현물 만들기** 또는 **이모지 및 스티커 관리** 권한도 허용
 - 채널 권한: 퀴즈 채널에 "채널 보기", "메시지 보내기", "메시지 기록 보기", "슬래시 명령어 사용" 허용
 - 관전 로그 채널: 봇에게 "메시지 보내기" 권한, 일반 유저는 채널 안 보이게 권한 설정
 
@@ -98,15 +106,19 @@ python bot.py
 
 ```
 tarkov_quiz_bot/
-├── bot.py                     # Discord 세션, 버튼 UI, 로그, 명령어
+├── bot.py                     # Discord 버튼 UI, 로그, 명령어
+├── quiz_session.py            # 세션 상태와 활성 세션 레지스트리
+├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── question_bank.py           # 문제 로딩, 형식 검증, 난이도별 추출
 ├── config.py                  # 토큰/채널ID/배점/절대경로 설정
 ├── database.py                # SQLite 리더보드
 ├── questions.json             # 문제 풀 데이터
 ├── check_questions.py         # 문제 통계 + 패치 변동형 점검 CLI
+├── assets/dashboard_icons/    # Discord용 128px 투명 UI 아이콘 21종
 ├── tests/
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
+│   ├── test_project_config.py # pyproject/requirements 의존성 일치 테스트
 │   └── test_question_bank.py  # 문제 검증·모드 필터·출제 테스트
 ├── pyproject.toml
 ├── requirements.txt
@@ -123,6 +135,8 @@ tarkov_quiz_bot/
 
 - SQLite는 시작 시 WAL 모드와 30초 busy timeout을 적용해 결과 저장과 랭킹 조회가 겹쳐도
   `database is locked` 오류가 쉽게 발생하지 않도록 합니다.
+- DB 스키마는 SQLite `user_version`으로 관리합니다. 현재 봇보다 새로운 스키마의 DB를 발견하면
+  구버전 코드가 데이터를 변경하지 않도록 시작을 중단합니다.
 - 랭킹 전용 인덱스를 사용하고, 히든 상품 후보는 전체 완주 목록을 메모리에 적재하지 않고
   순차 집계합니다.
 - 관리자 관전 로그의 Discord 메시지는 기본 5문제마다 묶어 갱신하고 완료 시 최종 갱신합니다.
@@ -171,8 +185,11 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py question_bank.py check_questions.py
+python -m py_compile bot.py config.py database.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
+ruff check .
 ```
+
+GitHub에 push하거나 PR을 만들면 같은 검사를 Python 3.10과 3.13에서 자동 실행합니다.
 
 VS Code에서는 저장소에 포함된 `.vscode/settings.json`이 프로젝트의
 `.venv\\Scripts\\python.exe`와 `unittest` 검색 경로를 자동으로 선택합니다.

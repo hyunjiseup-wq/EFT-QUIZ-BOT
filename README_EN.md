@@ -20,6 +20,11 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 - A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
   It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
   rankings. Only server administrators can use its buttons.
+- Both dashboards and quiz notifications support 21 original Tarkov-inspired icons from
+  `assets/dashboard_icons/` (ten dashboard icons and eleven notification icons).
+  An administrator can run `/대시보드아이콘설치` once to upload only missing custom emojis and
+  immediately refresh the configured player and supervisor dashboards. Existing emojis with the
+  reserved names are reused, never deleted or overwritten; default Unicode emoji remain as fallback.
 - `/pvp퀴즈`: Starts a quiz using common questions plus PvP-only questions.
 - `/pve퀴즈`: Starts a quiz using common questions plus PvE-only questions.
   The quiz runs in an ephemeral message visible only to the person who ran the command.
@@ -40,6 +45,8 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   Regular users don't see this command at all.
 - `/퀴즈대시보드설치` (install-dashboard): **Server admin only.** Installs or refreshes the public dashboard in the current channel.
 - `/감독대시보드설치` (install-supervisor-dashboard): **Server admin only.** Installs or refreshes the supervisor dashboard in the current channel.
+- `/대시보드아이콘설치` (install-dashboard-icons): **Server admin only.** Uploads any missing
+  dashboard icons as server custom emojis and applies them to both dashboards.
 - `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
   for most completions, active days, improvement, underdog, and dual-mode participation in the
   admin review channel (30 days by default, up to 365).
@@ -92,7 +99,8 @@ python bot.py
 ```
 
 ### Discord Developer Portal configuration
-- Bot permissions: `applications.commands`, `bot` scope
+- Bot permissions: `applications.commands`, `bot` scope. Installing the custom dashboard icons also
+  requires the bot role's **Create Expressions** or **Manage Emojis and Stickers** permission.
 - Channel permissions: allow "View Channel", "Send Messages", "Read Message History", and "Use Slash Commands" in the quiz channel
 - Spectator log channel: grant the bot "Send Messages"; hide the channel from regular users
 
@@ -100,15 +108,19 @@ python bot.py
 
 ```
 tarkov_quiz_bot/
-├── bot.py                     # Discord session, button UI, logging, commands
+├── bot.py                     # Discord button UI, logging, and commands
+├── quiz_session.py            # Session state and active-session registry
+├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── question_bank.py           # Question loading, format validation, per-difficulty draw
 ├── config.py                  # Token/channel ID/points/absolute path settings
 ├── database.py                # SQLite leaderboard
 ├── questions.json             # Question pool data
 ├── check_questions.py         # Question stats + patch-volatility check CLI
+├── assets/dashboard_icons/    # 21 transparent 128px Discord UI icons
 ├── tests/
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
+│   ├── test_project_config.py # pyproject/requirements dependency consistency
 │   └── test_question_bank.py  # Question validation, mode filtering, and draw tests
 ├── pyproject.toml
 ├── requirements.txt
@@ -125,6 +137,8 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 
 - SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
   much less likely to fail with `database is locked` under bursts.
+- The SQLite `user_version` tracks the database schema. If a database is newer than the running
+  bot, startup stops before older code can modify it.
 - A ranking index is maintained, and hidden-reward candidates are aggregated as a stream rather
   than loading every attempt into memory at once.
 - The admin spectator message is edited every five questions by default and once at completion;
@@ -175,8 +189,11 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py question_bank.py check_questions.py
+python -m py_compile bot.py config.py database.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
+ruff check .
 ```
+
+Pushes and pull requests run the same checks automatically on Python 3.10 and 3.13.
 
 For VS Code, the committed `.vscode/settings.json` selects the project's
 `.venv\\Scripts\\python.exe` and configures `unittest` discovery.

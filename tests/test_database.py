@@ -24,6 +24,22 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(journal_mode, "wal")
             self.assertIn("idx_leaderboard_ranking", indexes)
 
+            with closing(sqlite3.connect(path)) as connection:
+                schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            self.assertEqual(schema_version, database.SCHEMA_VERSION)
+
+    def test_init_rejects_database_from_newer_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "future.db"
+            with closing(sqlite3.connect(path)) as connection:
+                connection.execute(f"PRAGMA user_version = {database.SCHEMA_VERSION + 1}")
+
+            with (
+                patch.object(database, "DB_PATH", path),
+                self.assertRaisesRegex(RuntimeError, "더 새로운 봇"),
+            ):
+                database.init_db()
+
     def test_concurrent_reads_and_writes_do_not_lock_database(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "leaderboard.db"
@@ -190,6 +206,55 @@ class DatabaseTests(unittest.TestCase):
                     """
                 ).fetchone()
             self.assertEqual(attempts_table, ("quiz_attempts",))
+
+    def test_init_db_backfills_best_time_in_intermediate_server_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "intermediate.db"
+            with closing(sqlite3.connect(path)) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE leaderboard (
+                        guild_id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        username TEXT NOT NULL,
+                        best_score INTEGER NOT NULL DEFAULT 0,
+                        last_score INTEGER NOT NULL DEFAULT 0,
+                        total_correct INTEGER NOT NULL DEFAULT 0,
+                        total_questions INTEGER NOT NULL DEFAULT 0,
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        last_played_at TEXT,
+                        PRIMARY KEY (guild_id, user_id)
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO leaderboard
+                        (guild_id, user_id, username, best_score, last_score,
+                         total_correct, total_questions, attempts, last_played_at)
+                    VALUES ('10', '1', '중간버전', 100, 100, 4, 5, 1,
+                            '2026-02-01T00:00:00+00:00')
+                    """
+                )
+                connection.commit()
+
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                # 반복 실행해도 행이나 값이 달라지지 않아야 한다.
+                database.init_db()
+
+            with closing(sqlite3.connect(path)) as connection:
+                rows = connection.execute(
+                    """
+                    SELECT guild_id, mode, user_id, best_achieved_at
+                    FROM leaderboard
+                    """
+                ).fetchall()
+
+            self.assertEqual(
+                rows,
+                [("10", "legacy", "1", "2026-02-01T00:00:00+00:00")],
+            )
 
 
 if __name__ == "__main__":
