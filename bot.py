@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import logging
 import random
 import time
@@ -9,6 +8,11 @@ import discord
 
 import config
 import database
+from dashboard_manager import (
+    channel_dashboard_emojis,
+    ensure_dashboard_pinned,
+    find_dashboard_message,
+)
 from question_bank import (
     filter_questions_for_mode,
     group_by_difficulty,
@@ -1157,66 +1161,6 @@ async def show_public_stats(
     )
 
 
-def is_dashboard_message(
-    message: discord.Message,
-    marker: str = DASHBOARD_MARKER,
-) -> bool:
-    """봇이 만든 대시보드인지 footer marker로 판별한다."""
-    return bool(
-        message.author == bot.user
-        and message.embeds
-        and message.embeds[0].footer.text == marker
-    )
-
-
-async def find_dashboard_message(
-    channel,
-    marker: str = DASHBOARD_MARKER,
-) -> discord.Message | None:
-    """고정 메시지를 우선하고, 없으면 최근 메시지에서 기존 대시보드를 찾는다."""
-    if hasattr(channel, "pins"):
-        async for message in channel.pins(limit=50):
-            if is_dashboard_message(message, marker):
-                return message
-
-    async for message in channel.history(limit=100):
-        if is_dashboard_message(message, marker):
-            return message
-    return None
-
-
-async def ensure_dashboard_pinned(message, label: str) -> bool:
-    """대시보드가 기록에 묻히지 않도록 고정하며, 권한 부족은 실행을 막지 않는다."""
-    if getattr(message, "pinned", False) is True:
-        return True
-
-    pin = getattr(message, "pin", None)
-    if pin is None:
-        return False
-    try:
-        result = pin(reason=f"타르코프 퀴즈 {label} 대시보드 자동 고정")
-        if not inspect.isawaitable(result):
-            return False
-        await result
-    except discord.Forbidden:
-        log.warning(
-            "%s 대시보드를 고정하지 못했습니다. 봇의 '메시지 관리' 권한을 확인하세요.",
-            label,
-        )
-        return False
-    except discord.HTTPException as error:
-        log.warning("%s 대시보드 고정 실패: %s", label, error)
-        return False
-    return True
-
-
-def channel_dashboard_emojis(channel) -> list[discord.Emoji]:
-    """Mock/부분 채널에서도 안전하게 서버 이모지 캐시를 꺼낸다."""
-    guild = getattr(channel, "guild", None)
-    emojis = getattr(guild, "emojis", None)
-    return list(emojis) if isinstance(emojis, (list, tuple)) else []
-
-
 async def upsert_dashboard(
     channel,
     *,
@@ -1226,17 +1170,17 @@ async def upsert_dashboard(
 
     반환값의 bool은 새 메시지를 만들었으면 True다.
     """
-    dashboard = await find_dashboard_message(channel)
+    dashboard = await find_dashboard_message(channel, bot.user, DASHBOARD_MARKER)
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = QuizDashboardView(resolved_emojis)
     embed = build_dashboard_embed(resolved_emojis)
     if dashboard is None:
         dashboard = await channel.send(embed=embed, view=view)
-        await ensure_dashboard_pinned(dashboard, "퀴즈")
+        await ensure_dashboard_pinned(dashboard, "퀴즈", log)
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
-    await ensure_dashboard_pinned(dashboard, "퀴즈")
+    await ensure_dashboard_pinned(dashboard, "퀴즈", log)
     return dashboard, False
 
 
@@ -1246,7 +1190,9 @@ async def upsert_supervisor_dashboard(
     emojis: list[discord.Emoji] | None = None,
 ) -> tuple[discord.Message, bool]:
     """감독 채널의 관리자 대시보드를 만들거나 갱신한다."""
-    dashboard = await find_dashboard_message(channel, SUPERVISOR_DASHBOARD_MARKER)
+    dashboard = await find_dashboard_message(
+        channel, bot.user, SUPERVISOR_DASHBOARD_MARKER
+    )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = SupervisorDashboardView(resolved_emojis)
     embed = build_supervisor_dashboard_embed(resolved_emojis)
@@ -1255,11 +1201,11 @@ async def upsert_supervisor_dashboard(
             embed=embed,
             view=view,
         )
-        await ensure_dashboard_pinned(dashboard, "감독")
+        await ensure_dashboard_pinned(dashboard, "감독", log)
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
-    await ensure_dashboard_pinned(dashboard, "감독")
+    await ensure_dashboard_pinned(dashboard, "감독", log)
     return dashboard, False
 
 
