@@ -6,9 +6,11 @@ import discord
 
 import admin_log
 import config
+import dashboard_icon_installer
 import database
 import interaction_access
 import quiz_completion
+import quiz_icons
 import quiz_presenters
 import quiz_scoring
 from dashboard_manager import (
@@ -22,14 +24,7 @@ from question_bank import (
     load_validated_questions,
     select_session_questions,
 )
-from quiz_icons import (
-    QUIZ_EMOJI_ASSETS,
-    QUIZ_ICON_DIR,
-    apply_dashboard_emojis,
-    available_static_emoji_slots,
-    missing_quiz_emoji_names,
-    validate_quiz_icon_assets,
-)
+from quiz_icons import apply_dashboard_emojis
 from quiz_reports import (
     build_hidden_reward_embed,
     build_leaderboard_embed,
@@ -83,6 +78,13 @@ QUESTIONS_BY_MODE = {
 MODE_LABELS = {"pvp": "PvP", "pve": "PvE"}
 DASHBOARD_MARKER = "타르코프 퀴즈 대시보드 · v1"
 SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v1"
+
+# 기존 외부 참조와 테스트 호환을 유지하는 quiz_icons 재노출 이름.
+QUIZ_EMOJI_ASSETS = quiz_icons.QUIZ_EMOJI_ASSETS
+QUIZ_ICON_DIR = quiz_icons.QUIZ_ICON_DIR
+available_static_emoji_slots = quiz_icons.available_static_emoji_slots
+missing_quiz_emoji_names = quiz_icons.missing_quiz_emoji_names
+validate_quiz_icon_assets = quiz_icons.validate_quiz_icon_assets
 
 
 def find_quiz_emoji(
@@ -1041,34 +1043,14 @@ async def refresh_configured_dashboards(
     guild: discord.Guild,
     emojis: list[discord.Emoji],
 ) -> tuple[list[str], list[str]]:
-    """아이콘 등록 후 같은 서버의 설정된 대시보드 메시지를 즉시 갱신한다."""
-    refreshed = []
-    failed = []
-    targets = (
-        ("퀴즈", config.QUIZ_CHANNEL_ID, upsert_dashboard),
-        ("감독", config.ADMIN_LOG_CHANNEL_ID, upsert_supervisor_dashboard),
+    return await dashboard_icon_installer.refresh_configured_dashboards(
+        bot,
+        guild,
+        emojis,
+        upsert_dashboard=upsert_dashboard,
+        upsert_supervisor_dashboard=upsert_supervisor_dashboard,
+        logger=log,
     )
-    for label, channel_id, updater in targets:
-        if not channel_id:
-            continue
-        channel = bot.get_channel(channel_id)
-        if channel is None:
-            try:
-                channel = await bot.fetch_channel(channel_id)
-            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-                log.exception("%s 대시보드 아이콘 갱신용 채널 조회 실패", label)
-                failed.append(label)
-                continue
-        if getattr(getattr(channel, "guild", None), "id", None) != guild.id:
-            continue
-        try:
-            await updater(channel, emojis=emojis)
-        except (discord.Forbidden, discord.HTTPException):
-            log.exception("%s 대시보드 아이콘 적용 실패", label)
-            failed.append(label)
-        else:
-            refreshed.append(label)
-    return refreshed, failed
 
 
 @bot.tree.command(
@@ -1078,111 +1060,14 @@ async def refresh_configured_dashboards(
 @discord.app_commands.default_permissions(administrator=True)
 @discord.app_commands.guild_only()
 async def install_dashboard_icons_cmd(interaction: discord.Interaction):
-    guild = interaction.guild
     if not await require_guild_admin(interaction):
         return
-
-    bot_member = guild.me
-    bot_permissions = bot_member.guild_permissions if bot_member else None
-    if not (
-        bot_permissions
-        and (bot_permissions.create_expressions or bot_permissions.manage_expressions)
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "아이콘을 등록하려면 봇 역할에 **표현물 만들기** 또는 "
-                "**이모지 및 스티커 관리** 권한이 필요합니다.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    asset_errors = validate_quiz_icon_assets()
-    if asset_errors:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "아이콘 파일 검증에 실패해 설치를 중단했습니다: "
-                + ", ".join(asset_errors),
-            ),
-            ephemeral=True,
-        )
-        return
-
-    emojis = list(guild.emojis)
-    missing_names = missing_quiz_emoji_names(emojis)
-    available_slots = available_static_emoji_slots(guild)
-    if len(missing_names) > available_slots:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                f"퀴즈 아이콘은 **{len(missing_names)}개**가 더 필요하지만 일반 이모지 "
-                f"슬롯은 **{available_slots}개**만 남아 있어요. 서버 이모지 슬롯을 "
-                "확보한 뒤 다시 실행해주세요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    by_name = {emoji.name: emoji for emoji in emojis}
-    created = []
-    reused = []
-    failed = []
-
-    for emoji_name, filename in QUIZ_EMOJI_ASSETS.items():
-        if emoji_name in by_name:
-            reused.append(emoji_name)
-            continue
-
-        image = (QUIZ_ICON_DIR / filename).read_bytes()
-        if len(image) > 256 * 1024:
-            failed.append(f"{emoji_name}(256KB 초과)")
-            continue
-        try:
-            emoji = await guild.create_custom_emoji(
-                name=emoji_name,
-                image=image,
-                reason=f"{interaction.user}님의 퀴즈 대시보드 아이콘 설치",
-            )
-        except discord.Forbidden:
-            failed.append(f"{emoji_name}(권한 부족)")
-            break
-        except discord.HTTPException as error:
-            log.exception("대시보드 커스텀 이모지 등록 실패: %s", emoji_name)
-            failed.append(f"{emoji_name}(HTTP {error.status})")
-            continue
-
-        created.append(emoji_name)
-        emojis.append(emoji)
-        by_name[emoji_name] = emoji
-
-    refreshed, refresh_failed = await refresh_configured_dashboards(guild, emojis)
-    success_icon = str(by_name.get("tq_correct") or "✅")
-    lines = [
-        f"{success_icon} 신규 등록 **{len(created)}개** · "
-        f"기존 재사용 **{len(reused)}개**"
-    ]
-    if refreshed:
-        lines.append(f"대시보드 갱신: **{' · '.join(refreshed)}**")
-    if failed:
-        lines.append("등록 실패: " + ", ".join(failed))
-    if refresh_failed:
-        lines.append("대시보드 갱신 실패: " + ", ".join(refresh_failed))
-    if not refreshed and not refresh_failed:
-        lines.append(
-            "설정된 대시보드 채널이 없어 아이콘만 등록했습니다. "
-            "각 채널에서 설치 명령을 실행하면 적용됩니다."
-        )
-    lines.append("같은 이름의 서버 이모지는 삭제하거나 덮어쓰지 않습니다.")
-    await interaction.followup.send("\n".join(lines), ephemeral=True)
+    await dashboard_icon_installer.install_dashboard_icons(
+        interaction,
+        refresh_dashboards=refresh_configured_dashboards,
+        quiz_alert_text=quiz_alert_text,
+        logger=log,
+    )
 
 
 @bot.tree.command(
