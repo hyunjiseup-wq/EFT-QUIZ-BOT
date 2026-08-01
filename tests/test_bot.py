@@ -491,6 +491,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
 
             session.per_difficulty["general"] = [0, 5]
             await bot.update_admin_log(session, question, False, False, "오답1")
+            await session.admin_log_task
             session.admin_log_message.edit.assert_awaited_once()
 
     async def test_final_admin_log_timeout_is_reported_and_detached(self):
@@ -508,6 +509,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(bot.log, "warning") as log_warning:
             await bot.finalize_admin_log(session, aborted=False)
+            await session.admin_log_task
 
         log_warning.assert_called_once()
         self.assertIsNone(session.admin_log_message)

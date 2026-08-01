@@ -30,6 +30,12 @@ class QuizSession:
     current_shuffled_choices: list[int] | None = None
     finished: bool = False
     admin_log_message: discord.Message | None = None
+    admin_log_channel: object | None = field(default=None, repr=False)
+    admin_log_task: asyncio.Task | None = field(default=None, repr=False)
+    admin_log_revision: int = 0
+    admin_log_finalized: bool = False
+    admin_log_aborted: bool = False
+    admin_log_final_reason: str = ""
     admin_log_lines: list[str] = field(default_factory=list)
     transition_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 

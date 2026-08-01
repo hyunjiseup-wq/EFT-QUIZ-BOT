@@ -7,8 +7,6 @@ import discord
 import config
 from quiz_session import QuizSession
 
-ADMIN_LOG_TIMEOUT = 2.0
-
 
 async def get_admin_channel(client: discord.Client, logger: logging.Logger):
     if not config.ADMIN_LOG_CHANNEL_ID:
@@ -66,6 +64,98 @@ def build_admin_embed(
     return embed
 
 
+def _admin_log_status(session: QuizSession, quiz_icon_text: Callable):
+    if session.admin_log_finalized:
+        if session.admin_log_aborted:
+            exit_icon = quiz_icon_text(session.guild_id, "tq_exit", "⚪")
+            suffix = (
+                f" ({session.admin_log_final_reason})"
+                if session.admin_log_final_reason
+                else ""
+            )
+            return f"{exit_icon} 중단됨{suffix}", discord.Color.light_grey()
+        complete_icon = quiz_icon_text(session.guild_id, "tq_complete", "🟢")
+        return f"{complete_icon} 완료", discord.Color.green()
+    active_icon = quiz_icon_text(session.guild_id, "tq_sessions", "🟡")
+    return f"{active_icon} 진행 중", discord.Color.blurple()
+
+
+async def _flush_admin_log(
+    session: QuizSession,
+    *,
+    mode_labels: Mapping[str, str],
+    decorate_embed: Callable,
+    quiz_icon_text: Callable,
+    logger: logging.Logger,
+) -> None:
+    """Discord 레이트리밋은 기다리되 대기 중 변경은 최신 상태로 병합한다."""
+    channel = session.admin_log_channel
+    if channel is None and session.admin_log_message is None:
+        return
+
+    try:
+        while True:
+            revision = session.admin_log_revision
+            status, color = _admin_log_status(session, quiz_icon_text)
+            embed = build_admin_embed(
+                session,
+                status,
+                color,
+                mode_labels=mode_labels,
+                decorate_embed=decorate_embed,
+            )
+            if session.admin_log_message is None:
+                session.admin_log_message = await channel.send(embed=embed)
+            else:
+                await session.admin_log_message.edit(embed=embed)
+
+            if session.admin_log_revision == revision:
+                if session.admin_log_finalized:
+                    session.admin_log_message = None
+                return
+    except asyncio.CancelledError:
+        raise
+    except (discord.HTTPException, TimeoutError) as error:
+        logger.warning(
+            "관리자 로그 비동기 갱신 실패 (guild=%s, user=%s): %s",
+            session.guild_id,
+            session.user_id,
+            error,
+        )
+        if session.admin_log_finalized:
+            session.admin_log_message = None
+    except Exception:
+        logger.exception(
+            "관리자 로그 비동기 처리 오류 (guild=%s, user=%s)",
+            session.guild_id,
+            session.user_id,
+        )
+
+
+def _ensure_admin_log_flush(
+    session: QuizSession,
+    *,
+    mode_labels: Mapping[str, str],
+    decorate_embed: Callable,
+    quiz_icon_text: Callable,
+    logger: logging.Logger,
+) -> None:
+    if session.admin_log_channel is None and session.admin_log_message is None:
+        return
+    task = session.admin_log_task
+    if task is not None and not task.done():
+        return
+    session.admin_log_task = asyncio.create_task(
+        _flush_admin_log(
+            session,
+            mode_labels=mode_labels,
+            decorate_embed=decorate_embed,
+            quiz_icon_text=quiz_icon_text,
+            logger=logger,
+        )
+    )
+
+
 async def start_admin_log(
     client: discord.Client,
     session: QuizSession,
@@ -78,23 +168,15 @@ async def start_admin_log(
     channel = await get_admin_channel(client, logger)
     if channel is None:
         return
-    status = f"{quiz_icon_text(session.guild_id, 'tq_sessions', '🟡')} 진행 중"
-    embed = build_admin_embed(
+    session.admin_log_channel = channel
+    session.admin_log_revision += 1
+    _ensure_admin_log_flush(
         session,
-        status,
-        discord.Color.blurple(),
         mode_labels=mode_labels,
         decorate_embed=decorate_embed,
+        quiz_icon_text=quiz_icon_text,
+        logger=logger,
     )
-    try:
-        session.admin_log_message = await asyncio.wait_for(
-            channel.send(embed=embed),
-            timeout=ADMIN_LOG_TIMEOUT,
-        )
-    except TimeoutError:
-        logger.warning("관리자 로그 생성 시간 초과; 퀴즈 진행은 계속합니다.")
-    except discord.HTTPException as error:
-        logger.warning("관리자 로그 생성 실패; 퀴즈 진행은 계속합니다: %s", error)
 
 
 async def update_admin_log(
@@ -109,8 +191,6 @@ async def update_admin_log(
     quiz_icon_text: Callable,
     logger: logging.Logger,
 ):
-    if session.admin_log_message is None:
-        return
     if timed_out:
         mark = quiz_icon_text(session.guild_id, "tq_timeout", "⏰")
     elif is_correct:
@@ -133,31 +213,19 @@ async def update_admin_log(
         if explanation:
             intel_icon = quiz_icon_text(session.guild_id, "tq_tutorial", "💡")
             session.admin_log_lines.append(f"　└ {intel_icon} {explanation[:150]}")
+    session.admin_log_revision += 1
 
     # 모든 답변은 메모리에 남기되 Discord API 편집은 묶어서 수행한다.
     answered = sum(counts[1] for counts in session.per_difficulty.values())
     if answered >= session.total or answered % config.ADMIN_LOG_UPDATE_EVERY:
         return
-
-    status = f"{quiz_icon_text(session.guild_id, 'tq_sessions', '🟡')} 진행 중"
-    embed = build_admin_embed(
+    _ensure_admin_log_flush(
         session,
-        status,
-        discord.Color.blurple(),
         mode_labels=mode_labels,
         decorate_embed=decorate_embed,
+        quiz_icon_text=quiz_icon_text,
+        logger=logger,
     )
-    try:
-        await asyncio.wait_for(
-            session.admin_log_message.edit(embed=embed),
-            timeout=ADMIN_LOG_TIMEOUT,
-        )
-    except TimeoutError:
-        logger.warning("관리자 로그 갱신 시간 초과; 퀴즈 진행은 계속합니다.")
-        session.admin_log_message = None
-    except discord.HTTPException as error:
-        logger.warning("관리자 로그 갱신 실패: %s", error)
-        session.admin_log_message = None
 
 
 async def finalize_admin_log(
@@ -170,40 +238,14 @@ async def finalize_admin_log(
     quiz_icon_text: Callable,
     logger: logging.Logger,
 ):
-    if session.admin_log_message is None:
-        return
-    if aborted:
-        exit_icon = quiz_icon_text(session.guild_id, "tq_exit", "⚪")
-        status = f"{exit_icon} 중단됨{f' ({reason})' if reason else ''}"
-        color = discord.Color.light_grey()
-    else:
-        status = f"{quiz_icon_text(session.guild_id, 'tq_complete', '🟢')} 완료"
-        color = discord.Color.green()
-    embed = build_admin_embed(
+    session.admin_log_finalized = True
+    session.admin_log_aborted = aborted
+    session.admin_log_final_reason = reason
+    session.admin_log_revision += 1
+    _ensure_admin_log_flush(
         session,
-        status,
-        color,
         mode_labels=mode_labels,
         decorate_embed=decorate_embed,
+        quiz_icon_text=quiz_icon_text,
+        logger=logger,
     )
-    try:
-        await asyncio.wait_for(
-            session.admin_log_message.edit(embed=embed),
-            timeout=ADMIN_LOG_TIMEOUT,
-        )
-    except TimeoutError:
-        logger.warning(
-            "최종 관리자 로그 갱신 시간 초과 (guild=%s, user=%s, aborted=%s)",
-            session.guild_id,
-            session.user_id,
-            aborted,
-        )
-    except discord.HTTPException as error:
-        logger.warning(
-            "최종 관리자 로그 갱신 실패 (guild=%s, user=%s, aborted=%s): %s",
-            session.guild_id,
-            session.user_id,
-            aborted,
-            error,
-        )
-    session.admin_log_message = None
