@@ -62,6 +62,53 @@ class QuizCompletionTests(unittest.IsolatedAsyncioTestCase):
             reason="메시지 수정 실패로 중단",
         )
 
+    async def test_message_failure_cleans_session_when_admin_log_finalizer_fails(self):
+        session = make_session()
+        response = Mock(status=404, reason="Not Found", headers={})
+        interaction = make_interaction()
+        interaction.edit_original_response.side_effect = discord.HTTPException(
+            response, "expired"
+        )
+        finalize_admin_log = AsyncMock(side_effect=RuntimeError("log failed"))
+        logger = Mock()
+
+        with patch.dict(active_sessions, {(10, 1): session}, clear=True):
+            updated = await quiz_completion.edit_session_message(
+                session,
+                interaction,
+                finalize_admin_log=finalize_admin_log,
+                logger=logger,
+                content="다음 문제",
+            )
+
+            self.assertFalse(updated)
+            self.assertNotIn((10, 1), active_sessions)
+
+        self.assertTrue(session.finished)
+        logger.exception.assert_called_once()
+
+    async def test_missing_timeout_message_aborts_and_cleans_session(self):
+        session = make_session()
+        finalize_admin_log = AsyncMock()
+
+        with patch.dict(active_sessions, {(10, 1): session}, clear=True):
+            updated = await quiz_completion.edit_session_message(
+                session,
+                None,
+                finalize_admin_log=finalize_admin_log,
+                logger=Mock(),
+                content="다음 문제",
+            )
+
+            self.assertFalse(updated)
+            self.assertNotIn((10, 1), active_sessions)
+
+        finalize_admin_log.assert_awaited_once_with(
+            session,
+            aborted=True,
+            reason="세션 메시지 없음으로 중단",
+        )
+
     async def test_final_result_is_saved_before_success_cleanup(self):
         session = make_session()
         interaction = make_interaction()
@@ -99,6 +146,37 @@ class QuizCompletionTests(unittest.IsolatedAsyncioTestCase):
             view=None,
         )
         finalize_admin_log.assert_awaited_once_with(session, aborted=False)
+
+    async def test_finalizer_failure_still_cleans_completed_session(self):
+        session = make_session()
+        interaction = make_interaction()
+        finalize_admin_log = AsyncMock(side_effect=RuntimeError("log failed"))
+        logger = Mock()
+
+        with (
+            patch.dict(active_sessions, {(10, 1): session}, clear=True),
+            patch.object(
+                quiz_completion.asyncio,
+                "to_thread",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
+            await quiz_completion.advance_or_finish(
+                interaction,
+                session,
+                "제출 완료",
+                build_final_embed=Mock(return_value="final-embed"),
+                build_question_embed=Mock(),
+                answer_view_factory=Mock(),
+                finalize_admin_log=finalize_admin_log,
+                quiz_icon_text=Mock(),
+                logger=logger,
+            )
+
+            self.assertNotIn((10, 1), active_sessions)
+
+        self.assertTrue(session.finished)
+        logger.exception.assert_called_once()
 
     async def test_database_failure_shows_warning_and_aborts_log(self):
         session = make_session()

@@ -137,7 +137,7 @@ tarkov_quiz_bot/
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_quiz_lifecycle.py # Start, give-up, and concurrent-session tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
-│   ├── test_project_config.py # pyproject/requirements dependency consistency
+│   ├── test_project_config.py # Dependency consistency and duplicate-CI prevention
 │   ├── test_quiz_presenters.py # Quiz presentation and information-hiding tests
 │   ├── test_quiz_scoring.py   # Correct, wrong, and timed-out scoring tests
 │   └── test_question_bank.py  # Question validation, mode filtering, and draw tests
@@ -166,6 +166,11 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
   only new starts wait until capacity becomes available.
 - Concurrent starts by the same user reserve the first session before sending, while failed start
   messages and give-up log errors automatically release the session slot.
+- Give-up commands reserve an ephemeral response before supervisor-log work, avoiding Discord's
+  three-second response timeout. Sessions with a missing completion/timeout message are aborted
+  and released automatically.
+- Discord uses the existing root logger instead of adding a duplicate handler. CI runs once for a
+  pull request and once again after its merge to `main`.
 
 `MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
 limit is the number of quizzes active at the same instant, not the Discord server's member count.

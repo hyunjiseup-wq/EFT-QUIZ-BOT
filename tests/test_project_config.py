@@ -24,6 +24,14 @@ class ProjectConfigTests(unittest.TestCase):
 
         self.assertEqual(requirements_dependencies, project_dependencies)
 
+    def test_ci_does_not_duplicate_branch_push_and_pull_request_runs(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertRegex(workflow, r"(?m)^  push:\n    branches: \[main\]$")
+        self.assertRegex(workflow, r"(?m)^  pull_request:$")
+
 
 if __name__ == "__main__":
     unittest.main()

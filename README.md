@@ -134,7 +134,7 @@ tarkov_quiz_bot/
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_quiz_lifecycle.py # 시작·포기·동시 세션 회귀 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
-│   ├── test_project_config.py # pyproject/requirements 의존성 일치 테스트
+│   ├── test_project_config.py # 의존성 일치·CI 중복 실행 방지 테스트
 │   ├── test_quiz_presenters.py # 퀴즈 화면·정보 비공개 표시 테스트
 │   ├── test_quiz_scoring.py   # 정답·오답·시간 초과 채점 테스트
 │   └── test_question_bank.py  # 문제 검증·모드 필터·출제 테스트
@@ -163,6 +163,10 @@ tarkov_quiz_bot/
   끝날 때까지 신규 시작만 잠시 제한하며 기존 퀴즈는 계속 진행됩니다.
 - 같은 사용자의 동시 시작은 첫 세션을 먼저 예약해 중복 생성을 막고, 시작 화면 전송이나
   포기 로그 정리가 실패해도 활성 세션 레지스트리를 자동으로 회수합니다.
+- 포기 명령은 먼저 비공개 응답을 예약하므로 관리자 로그 API가 느려도 Discord의 3초 응답
+  제한을 넘기지 않습니다. 완료·시간 초과 화면을 잃어버린 세션도 자동 중단·정리됩니다.
+- Discord 로그는 루트 로거 하나만 사용해 동일한 로그인·게이트웨이 메시지가 중복 출력되지
+  않습니다. CI는 PR에서 한 번, `main` 병합 후 한 번만 실행됩니다.
 
 필요하면 `.env`에서 `MAX_ACTIVE_SESSIONS_PER_GUILD`와 `ADMIN_LOG_UPDATE_EVERY`를 조정할 수
 있습니다. 동시 세션 상한은 전체 서버 인원수가 아니라 **같은 순간에 진행 중인 퀴즈 수**입니다.

@@ -9,6 +9,31 @@ import database
 from quiz_session import QuizSession, cleanup_session
 
 
+async def _finalize_and_cleanup(
+    session: QuizSession,
+    *,
+    finalize_admin_log: Callable,
+    logger: logging.Logger,
+    aborted: bool,
+    reason: str = "",
+) -> None:
+    """관리자 로그 마감 실패와 무관하게 세션을 레지스트리에서 제거한다."""
+    try:
+        if reason:
+            await finalize_admin_log(session, aborted=aborted, reason=reason)
+        else:
+            await finalize_admin_log(session, aborted=aborted)
+    except Exception:
+        logger.exception(
+            "세션 최종 관리자 로그 정리 실패 (guild=%s, user=%s, aborted=%s)",
+            session.guild_id,
+            session.user_id,
+            aborted,
+        )
+    finally:
+        cleanup_session(session)
+
+
 async def edit_session_message(
     session: QuizSession,
     interaction,
@@ -28,17 +53,30 @@ async def edit_session_message(
         elif session.message:
             await session.message.edit(**message_kwargs)
         else:
+            logger.warning(
+                "수정할 세션 메시지가 없어 중단합니다 (guild=%s, user=%s)",
+                session.guild_id,
+                session.user_id,
+            )
+            await _finalize_and_cleanup(
+                session,
+                finalize_admin_log=finalize_admin_log,
+                logger=logger,
+                aborted=True,
+                reason="세션 메시지 없음으로 중단",
+            )
             return False
         return True
     except discord.HTTPException as error:
         # ephemeral 메시지는 인터랙션 토큰이 만료되면 더 이상 수정할 수 없다.
         logger.warning("세션 메시지 수정 실패 (user=%s): %s", session.user_id, error)
-        await finalize_admin_log(
+        await _finalize_and_cleanup(
             session,
+            finalize_admin_log=finalize_admin_log,
+            logger=logger,
             aborted=True,
             reason="메시지 수정 실패로 중단",
         )
-        cleanup_session(session)
         return False
 
 
@@ -90,12 +128,14 @@ async def advance_or_finish(
                 embed=embed,
                 view=None,
             )
-            await finalize_admin_log(
-                session,
-                aborted=True,
-                reason="기록 저장 실패",
-            )
-            cleanup_session(session)
+            if not session.finished:
+                await _finalize_and_cleanup(
+                    session,
+                    finalize_admin_log=finalize_admin_log,
+                    logger=logger,
+                    aborted=True,
+                    reason="기록 저장 실패",
+                )
             return
 
         updated = await edit_session_message(
@@ -108,8 +148,12 @@ async def advance_or_finish(
             view=None,
         )
         if updated:
-            await finalize_admin_log(session, aborted=False)
-        cleanup_session(session)
+            await _finalize_and_cleanup(
+                session,
+                finalize_admin_log=finalize_admin_log,
+                logger=logger,
+                aborted=False,
+            )
         return
 
     next_embed = build_question_embed(session)
