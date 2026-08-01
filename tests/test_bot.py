@@ -155,18 +155,15 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         embed = bot.build_dashboard_embed()
         values = "\n".join(field.value for field in embed.fields)
 
-        self.assertEqual(embed.footer.text, bot.DASHBOARD_MARKER)
-        self.assertTrue(embed.footer.text.endswith("v2"))
+        self.assertIsNone(embed.footer.text)
         self.assertIn(str(len(bot.ALL_QUESTIONS)), values)
         self.assertIn(str(bot.config.TOTAL_QUESTIONS), values)
         self.assertIn(str(bot.config.QUESTION_TIME_LIMIT), values)
 
-    def test_supervisor_dashboard_embed_has_distinct_marker(self):
+    def test_supervisor_dashboard_embed_hides_internal_marker(self):
         embed = bot.build_supervisor_dashboard_embed()
 
-        self.assertEqual(embed.footer.text, bot.SUPERVISOR_DASHBOARD_MARKER)
-        self.assertNotEqual(embed.footer.text, bot.DASHBOARD_MARKER)
-        self.assertTrue(embed.footer.text.endswith("v2"))
+        self.assertIsNone(embed.footer.text)
 
     def test_tutorial_explains_both_modes_and_give_up(self):
         embed = bot.build_tutorial_embed()
@@ -297,8 +294,29 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(message, existing)
         channel.send.assert_not_awaited()
         updated_embed = existing.edit.await_args.kwargs["embed"]
-        self.assertEqual(updated_embed.footer.text, bot.DASHBOARD_MARKER)
-        self.assertTrue(updated_embed.footer.text.endswith("v2"))
+        self.assertIsNone(updated_embed.footer.text)
+
+    async def test_upsert_dashboard_finds_markerless_message_by_button_id(self):
+        existing = Mock()
+        existing.author = bot.bot.user
+        existing.pinned = True
+        existing.embeds = [bot.discord.Embed(title="타르코프 지식 퀴즈")]
+        existing.components = [
+            SimpleNamespace(
+                children=[SimpleNamespace(custom_id="tarkov_quiz:pvp:start")]
+            )
+        ]
+        existing.edit = AsyncMock()
+        channel = Mock()
+        channel.pins.return_value = async_iterator(existing)
+        channel.history.return_value = empty_async_iterator()
+        channel.send = AsyncMock()
+
+        message, created = await bot.upsert_dashboard(channel)
+
+        self.assertFalse(created)
+        self.assertIs(message, existing)
+        channel.send.assert_not_awaited()
 
     async def test_upsert_dashboard_uses_persisted_message_before_history(self):
         existing = Mock()
@@ -364,8 +382,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(message, existing)
         channel.send.assert_not_awaited()
         updated_embed = existing.edit.await_args.kwargs["embed"]
-        self.assertEqual(updated_embed.footer.text, bot.SUPERVISOR_DASHBOARD_MARKER)
-        self.assertTrue(updated_embed.footer.text.endswith("v2"))
+        self.assertIsNone(updated_embed.footer.text)
 
     async def test_leaderboard_defers_before_database_result(self):
         interaction = Mock()

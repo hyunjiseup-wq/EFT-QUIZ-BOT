@@ -9,12 +9,22 @@ def is_dashboard_message(
     bot_user: discord.ClientUser | None,
     marker: str,
     legacy_markers: tuple[str, ...] = (),
+    expected_custom_id: str | None = None,
 ) -> bool:
-    """현재 또는 이전 footer marker를 가진 봇 대시보드인지 판별한다."""
-    return bool(
-        message.author == bot_user
-        and message.embeds
-        and message.embeds[0].footer.text in (marker, *legacy_markers)
+    """이전 footer 또는 고유 버튼 ID를 가진 봇 대시보드인지 판별한다."""
+    if message.author != bot_user or not message.embeds:
+        return False
+    if message.embeds[0].footer.text in (marker, *legacy_markers):
+        return True
+    if expected_custom_id is None:
+        return False
+    components = getattr(message, "components", ())
+    if not isinstance(components, (list, tuple)):
+        return False
+    return any(
+        getattr(component, "custom_id", None) == expected_custom_id
+        for row in components
+        for component in getattr(row, "children", ())
     )
 
 
@@ -24,6 +34,7 @@ async def find_dashboard_message(
     marker: str,
     preferred_message_id: int | None = None,
     legacy_markers: tuple[str, ...] = (),
+    expected_custom_id: str | None = None,
 ) -> discord.Message | None:
     """저장 ID, 고정 메시지, 최근 기록 순으로 기존 대시보드를 찾는다."""
     if preferred_message_id and hasattr(channel, "fetch_message"):
@@ -32,16 +43,34 @@ async def find_dashboard_message(
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
         else:
-            if is_dashboard_message(message, bot_user, marker, legacy_markers):
+            if is_dashboard_message(
+                message,
+                bot_user,
+                marker,
+                legacy_markers,
+                expected_custom_id,
+            ):
                 return message
 
     if hasattr(channel, "pins"):
         async for message in channel.pins(limit=50):
-            if is_dashboard_message(message, bot_user, marker, legacy_markers):
+            if is_dashboard_message(
+                message,
+                bot_user,
+                marker,
+                legacy_markers,
+                expected_custom_id,
+            ):
                 return message
 
     async for message in channel.history(limit=100):
-        if is_dashboard_message(message, bot_user, marker, legacy_markers):
+        if is_dashboard_message(
+            message,
+            bot_user,
+            marker,
+            legacy_markers,
+            expected_custom_id,
+        ):
             return message
     return None
 
