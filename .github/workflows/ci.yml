@@ -39,7 +39,7 @@ jobs:
 
       - name: Compile Python sources
         run: >-
-          python -m py_compile bot.py config.py database.py dashboard_manager.py
+          python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py
           question_bank.py quiz_icons.py quiz_reports.py quiz_session.py check_questions.py
 
       - name: Run Ruff
