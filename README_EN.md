@@ -156,8 +156,8 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 
 - SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
   much less likely to fail with `database is locked` under bursts.
-- The SQLite `user_version` tracks the database schema. If a database is newer than the running
-  bot, startup stops before older code can modify it.
+- SQLite `user_version` tracks the database schema (currently v2). If a database is newer than
+  the running bot, startup stops before older code can modify it.
 - A ranking index is maintained, and hidden-reward candidates are aggregated as a stream rather
   than loading every attempt into memory at once.
 - The admin spectator message is edited every five questions by default and once at completion;
@@ -171,6 +171,9 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
   and released automatically.
 - Discord uses the existing root logger instead of adding a duplicate handler. CI runs once for a
   pull request and once again after its merge to `main`.
+- Quiz and supervisor dashboard message IDs are stored in SQLite. Even without pin permission or
+  after a dashboard leaves the latest 100 messages, startup retrieves it directly instead of
+  creating a duplicate.
 
 `MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
 limit is the number of quizzes active at the same instant, not the Discord server's member count.

@@ -845,6 +845,48 @@ async def show_public_stats(
     )
 
 
+def _dashboard_scope(channel) -> tuple[int, int] | None:
+    guild_id = getattr(getattr(channel, "guild", None), "id", None)
+    channel_id = getattr(channel, "id", None)
+    if not isinstance(guild_id, int) or not isinstance(channel_id, int):
+        return None
+    return guild_id, channel_id
+
+
+async def _load_dashboard_message_id(channel, kind: str) -> int | None:
+    scope = _dashboard_scope(channel)
+    if scope is None:
+        return None
+    guild_id, channel_id = scope
+    try:
+        stored = await asyncio.to_thread(database.get_dashboard_message, guild_id, kind)
+    except Exception:
+        log.exception("저장된 %s 대시보드 위치 조회 실패 (guild=%s)", kind, guild_id)
+        return None
+    if stored is None or stored[0] != channel_id:
+        return None
+    return stored[1]
+
+
+async def _save_dashboard_message(channel, dashboard, kind: str) -> None:
+    scope = _dashboard_scope(channel)
+    message_id = getattr(dashboard, "id", None)
+    if scope is None or not isinstance(message_id, int):
+        return
+    guild_id, channel_id = scope
+    try:
+        await asyncio.to_thread(
+            database.save_dashboard_message,
+            guild_id,
+            kind,
+            channel_id,
+            message_id,
+        )
+    except Exception:
+        # 레지스트리는 중복 방지용 보조 정보다. 저장 실패로 대시보드 자체를 막지 않는다.
+        log.exception("%s 대시보드 위치 저장 실패 (guild=%s)", kind, guild_id)
+
+
 async def upsert_dashboard(
     channel,
     *,
@@ -854,17 +896,25 @@ async def upsert_dashboard(
 
     반환값의 bool은 새 메시지를 만들었으면 True다.
     """
-    dashboard = await find_dashboard_message(channel, bot.user, DASHBOARD_MARKER)
+    preferred_message_id = await _load_dashboard_message_id(channel, "quiz")
+    dashboard = await find_dashboard_message(
+        channel,
+        bot.user,
+        DASHBOARD_MARKER,
+        preferred_message_id,
+    )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = QuizDashboardView(resolved_emojis)
     embed = build_dashboard_embed(resolved_emojis)
     if dashboard is None:
         dashboard = await channel.send(embed=embed, view=view)
         await ensure_dashboard_pinned(dashboard, "퀴즈", log)
+        await _save_dashboard_message(channel, dashboard, "quiz")
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
     await ensure_dashboard_pinned(dashboard, "퀴즈", log)
+    await _save_dashboard_message(channel, dashboard, "quiz")
     return dashboard, False
 
 
@@ -874,8 +924,12 @@ async def upsert_supervisor_dashboard(
     emojis: list[discord.Emoji] | None = None,
 ) -> tuple[discord.Message, bool]:
     """감독 채널의 관리자 대시보드를 만들거나 갱신한다."""
+    preferred_message_id = await _load_dashboard_message_id(channel, "supervisor")
     dashboard = await find_dashboard_message(
-        channel, bot.user, SUPERVISOR_DASHBOARD_MARKER
+        channel,
+        bot.user,
+        SUPERVISOR_DASHBOARD_MARKER,
+        preferred_message_id,
     )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = SupervisorDashboardView(resolved_emojis)
@@ -886,10 +940,12 @@ async def upsert_supervisor_dashboard(
             view=view,
         )
         await ensure_dashboard_pinned(dashboard, "감독", log)
+        await _save_dashboard_message(channel, dashboard, "supervisor")
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
     await ensure_dashboard_pinned(dashboard, "감독", log)
+    await _save_dashboard_message(channel, dashboard, "supervisor")
     return dashboard, False
 
 

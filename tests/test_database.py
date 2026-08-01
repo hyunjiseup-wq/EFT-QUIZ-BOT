@@ -10,6 +10,58 @@ import database
 
 
 class DatabaseTests(unittest.TestCase):
+    def test_dashboard_message_registry_is_isolated_by_guild_and_kind(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.save_dashboard_message(10, "quiz", 20, 100)
+                database.save_dashboard_message(10, "supervisor", 30, 200)
+                database.save_dashboard_message(20, "quiz", 40, 300)
+
+                self.assertEqual(database.get_dashboard_message(10, "quiz"), (20, 100))
+                self.assertEqual(
+                    database.get_dashboard_message(10, "supervisor"), (30, 200)
+                )
+                self.assertEqual(database.get_dashboard_message(20, "quiz"), (40, 300))
+
+                database.save_dashboard_message(10, "quiz", 21, 101)
+                self.assertEqual(database.get_dashboard_message(10, "quiz"), (21, 101))
+
+    def test_schema_v1_migration_preserves_results_and_adds_dashboard_registry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "leaderboard.db"
+            with patch.object(database, "DB_PATH", path):
+                database.init_db()
+                database.record_result(10, "pvp", 1, "보존대상", 100, 4, 5)
+
+                with closing(sqlite3.connect(path)) as connection:
+                    connection.execute("DROP TABLE dashboard_messages")
+                    connection.execute("PRAGMA user_version = 1")
+                    connection.commit()
+
+                database.init_db()
+
+            with closing(sqlite3.connect(path)) as connection:
+                version = connection.execute("PRAGMA user_version").fetchone()[0]
+                leaderboard_count = connection.execute(
+                    "SELECT COUNT(*) FROM leaderboard"
+                ).fetchone()[0]
+                attempts_count = connection.execute(
+                    "SELECT COUNT(*) FROM quiz_attempts"
+                ).fetchone()[0]
+                registry = connection.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type = 'table' AND name = 'dashboard_messages'
+                    """
+                ).fetchone()
+
+            self.assertEqual(version, 2)
+            self.assertEqual(leaderboard_count, 1)
+            self.assertEqual(attempts_count, 1)
+            self.assertEqual(registry, ("dashboard_messages",))
+
     def test_init_enables_wal_and_ranking_index(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "leaderboard.db"

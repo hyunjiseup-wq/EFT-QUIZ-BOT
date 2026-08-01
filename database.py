@@ -8,7 +8,8 @@ from config import DB_PATH
 
 _lock = threading.Lock()
 SQLITE_BUSY_TIMEOUT_MS = 30_000
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+DASHBOARD_KINDS = {"quiz", "supervisor"}
 
 
 def _connect() -> sqlite3.Connection:
@@ -161,7 +162,65 @@ def init_db():
             ON leaderboard (guild_id, mode, best_score DESC, best_achieved_at ASC)
             """
         )
+        # 고정 권한이 없거나 메시지가 오래되어 최근 기록 밖으로 밀려도 기존 대시보드를
+        # 정확히 다시 찾을 수 있도록 종류별 Discord 메시지 위치를 보존한다.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboard_messages (
+                guild_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (guild_id, kind)
+            )
+            """
+        )
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        conn.commit()
+
+
+def get_dashboard_message(guild_id: int, kind: str) -> tuple[int, int] | None:
+    """저장된 대시보드의 (채널 ID, 메시지 ID)를 반환한다."""
+    if kind not in DASHBOARD_KINDS:
+        raise ValueError(f"알 수 없는 대시보드 종류: {kind}")
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            """
+            SELECT channel_id, message_id
+            FROM dashboard_messages
+            WHERE guild_id = ? AND kind = ?
+            """,
+            (str(guild_id), kind),
+        ).fetchone()
+    if row is None:
+        return None
+    return int(row[0]), int(row[1])
+
+
+def save_dashboard_message(
+    guild_id: int,
+    kind: str,
+    channel_id: int,
+    message_id: int,
+) -> None:
+    """종류별 최신 대시보드 메시지 위치를 원자적으로 저장한다."""
+    if kind not in DASHBOARD_KINDS:
+        raise ValueError(f"알 수 없는 대시보드 종류: {kind}")
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock, closing(_connect()) as conn:
+        conn.execute(
+            """
+            INSERT INTO dashboard_messages
+                (guild_id, kind, channel_id, message_id, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(guild_id, kind) DO UPDATE SET
+                channel_id = excluded.channel_id,
+                message_id = excluded.message_id,
+                updated_at = excluded.updated_at
+            """,
+            (str(guild_id), kind, str(channel_id), str(message_id), now),
+        )
         conn.commit()
 
 
