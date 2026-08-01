@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import bot
+import dashboard_manager
 import quiz_icons
 
 
@@ -128,7 +129,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         emoji = bot.discord.PartialEmoji(name="tq_tutorial", id=789)
         channel = SimpleNamespace(guild=SimpleNamespace(emojis=(emoji,)))
 
-        self.assertEqual(bot.channel_dashboard_emojis(channel), [emoji])
+        self.assertEqual(dashboard_manager.channel_dashboard_emojis(channel), [emoji])
 
     def test_dashboard_embed_shows_live_quiz_settings(self):
         embed = bot.build_dashboard_embed()
@@ -220,7 +221,9 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(pinned=False, pin=AsyncMock(side_effect=error))
 
         with patch.object(bot.log, "warning") as log_warning:
-            pinned = await bot.ensure_dashboard_pinned(message, "감독")
+            pinned = await dashboard_manager.ensure_dashboard_pinned(
+                message, "감독", bot.log
+            )
 
         self.assertFalse(pinned)
         log_warning.assert_called_once()
@@ -228,7 +231,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
     async def test_dashboard_is_pinned_when_permission_is_available(self):
         message = SimpleNamespace(pinned=False, pin=AsyncMock())
 
-        pinned = await bot.ensure_dashboard_pinned(message, "감독")
+        pinned = await dashboard_manager.ensure_dashboard_pinned(message, "감독", bot.log)
 
         self.assertTrue(pinned)
         message.pin.assert_awaited_once_with(reason="타르코프 퀴즈 감독 대시보드 자동 고정")

@@ -112,6 +112,7 @@ tarkov_quiz_bot/
 ├── bot.py                     # Discord button UI, logging, and commands
 ├── quiz_session.py            # Session state and active-session registry
 ├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
+├── dashboard_manager.py       # Dashboard lookup, pinning, and emoji-cache helpers
 ├── question_bank.py           # Question loading, format validation, per-difficulty draw
 ├── config.py                  # Token/channel ID/points/absolute path settings
 ├── database.py                # SQLite leaderboard
@@ -190,7 +191,7 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
+python -m py_compile bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
 ruff check .
 ```
 
