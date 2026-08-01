@@ -115,6 +115,7 @@ tarkov_quiz_bot/
 ├── quiz_session.py            # Session state and active-session registry
 ├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── dashboard_manager.py       # Dashboard lookup, pinning, and emoji-cache helpers
+├── dashboard_icon_installer.py # Icon upload, slot checks, and dashboard refresh
 ├── quiz_completion.py         # Question transitions, result storage, and failure cleanup
 ├── quiz_presenters.py         # Question, submission, and final-result presentation
 ├── quiz_scoring.py            # Choice mapping, scoring, and timeout state changes
@@ -127,6 +128,7 @@ tarkov_quiz_bot/
 ├── assets/dashboard_icons/    # 21 transparent 128px Discord UI icons
 ├── tests/
 │   ├── test_admin_log.py      # Admin spectator-log and embed-limit tests
+│   ├── test_dashboard_icon_installer.py # Icon permission, slot, and partial-failure tests
 │   ├── test_interaction_access.py # Admin access and error-response tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
@@ -202,7 +204,7 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 
