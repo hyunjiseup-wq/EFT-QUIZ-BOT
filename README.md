@@ -113,6 +113,7 @@ tarkov_quiz_bot/
 ├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
 ├── dashboard_icon_installer.py # 아이콘 등록·슬롯 검사·대시보드 재갱신
+├── dashboard_installation.py  # 수동 대시보드 설치·권한·오류 처리
 ├── quiz_completion.py         # 문제 전환·결과 저장·메시지 실패 정리
 ├── quiz_presenters.py         # 문제·제출·최종 결과 화면 표시
 ├── quiz_scoring.py            # 답변 매핑·채점·시간 초과 상태 변경
@@ -126,6 +127,7 @@ tarkov_quiz_bot/
 ├── tests/
 │   ├── test_admin_log.py      # 관리자 관전 로그·임베드 제한 테스트
 │   ├── test_dashboard_icon_installer.py # 아이콘 권한·슬롯·부분 실패 테스트
+│   ├── test_dashboard_installation.py # 수동 설치·권한·HTTP 오류 테스트
 │   ├── test_interaction_access.py # 관리자 권한·오류 응답 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
@@ -199,7 +201,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 

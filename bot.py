@@ -7,6 +7,7 @@ import discord
 import admin_log
 import config
 import dashboard_icon_installer
+import dashboard_installation
 import database
 import interaction_access
 import quiz_completion
@@ -1079,57 +1080,13 @@ async def install_dashboard_icons_cmd(interaction: discord.Interaction):
 async def install_dashboard_cmd(interaction: discord.Interaction):
     if not await require_guild_admin(interaction):
         return
-
-    channel = interaction.channel
-    if channel is None or not hasattr(channel, "history") or not hasattr(channel, "send"):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 채널에는 대시보드를 설치할 수 없어요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    try:
-        dashboard, created = await upsert_dashboard(channel)
-        if created:
-            result = "대시보드를 이 채널에 설치했습니다."
-        else:
-            result = "기존 대시보드를 최신 내용으로 갱신했습니다."
-    except discord.Forbidden:
-        await interaction.followup.send(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "대시보드를 설치하려면 이 채널의 **메시지 기록 보기**와 "
-                "**메시지 보내기** 권한이 필요합니다.",
-            ),
-            ephemeral=True,
-        )
-        return
-    except discord.HTTPException:
-        log.exception("퀴즈 대시보드 설치/갱신 실패 (channel=%s)", interaction.channel_id)
-        await interaction.followup.send(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "디스코드 요청 오류로 대시보드를 설치하지 못했습니다. "
-                "잠시 후 다시 시도해주세요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    await interaction.followup.send(
-        f"{quiz_icon_text(interaction.guild_id, 'tq_correct', '✅')} {result} "
-        f"필요하면 [메시지로 이동]({dashboard.jump_url})해 고정해주세요.",
-        ephemeral=True,
+    await dashboard_installation.install_dashboard_message(
+        interaction,
+        upsert_dashboard=upsert_dashboard,
+        copy=dashboard_installation.QUIZ_DASHBOARD_COPY,
+        quiz_alert_text=quiz_alert_text,
+        quiz_icon_text=quiz_icon_text,
+        logger=log,
     )
 
 
@@ -1142,57 +1099,13 @@ async def install_dashboard_cmd(interaction: discord.Interaction):
 async def install_supervisor_dashboard_cmd(interaction: discord.Interaction):
     if not await require_guild_admin(interaction):
         return
-
-    channel = interaction.channel
-    if channel is None or not hasattr(channel, "history") or not hasattr(channel, "send"):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이 채널에는 감독 대시보드를 설치할 수 없어요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    try:
-        dashboard, created = await upsert_supervisor_dashboard(channel)
-        result = (
-            "감독 대시보드를 이 채널에 설치했습니다."
-            if created
-            else "기존 감독 대시보드를 최신 내용으로 갱신했습니다."
-        )
-    except discord.Forbidden:
-        await interaction.followup.send(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "감독 대시보드를 설치하려면 이 채널의 **메시지 기록 보기**와 "
-                "**메시지 보내기** 권한이 필요합니다.",
-            ),
-            ephemeral=True,
-        )
-        return
-    except discord.HTTPException:
-        log.exception("감독 대시보드 설치/갱신 실패 (channel=%s)", interaction.channel_id)
-        await interaction.followup.send(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "디스코드 요청 오류로 감독 대시보드를 설치하지 못했습니다.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    await interaction.followup.send(
-        f"{quiz_icon_text(interaction.guild_id, 'tq_correct', '✅')} {result} "
-        f"[메시지로 이동]({dashboard.jump_url})",
-        ephemeral=True,
+    await dashboard_installation.install_dashboard_message(
+        interaction,
+        upsert_dashboard=upsert_supervisor_dashboard,
+        copy=dashboard_installation.SUPERVISOR_DASHBOARD_COPY,
+        quiz_alert_text=quiz_alert_text,
+        quiz_icon_text=quiz_icon_text,
+        logger=log,
     )
 
 
