@@ -110,6 +110,7 @@ tarkov_quiz_bot/
 ├── quiz_session.py            # 세션 상태와 활성 세션 레지스트리
 ├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
+├── quiz_reports.py            # 랭킹·통계·히든 상품 임베드 표시
 ├── question_bank.py           # 문제 로딩, 형식 검증, 난이도별 추출
 ├── config.py                  # 토큰/채널ID/배점/절대경로 설정
 ├── database.py                # SQLite 리더보드
@@ -186,7 +187,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_session.py check_questions.py
+python -m py_compile bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_reports.py quiz_session.py check_questions.py
 ruff check .
 ```
 

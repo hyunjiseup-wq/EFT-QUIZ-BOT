@@ -27,6 +27,12 @@ from quiz_icons import (
     missing_quiz_emoji_names,
     validate_quiz_icon_assets,
 )
+from quiz_reports import (
+    build_hidden_reward_embed,
+    build_leaderboard_embed,
+    build_public_stats_embed,
+    build_user_record_embed,
+)
 from quiz_session import (
     QuizSession,
     active_sessions,
@@ -1067,26 +1073,9 @@ async def show_leaderboard(
         )
         return
 
-    embed = discord.Embed(
-        color=discord.Color.gold(),
+    embed = build_leaderboard_embed(
+        rows, mode, MODE_LABELS[mode], interaction.guild_id, decorate_embed
     )
-    decorate_embed(
-        embed,
-        f"{MODE_LABELS[mode]} 퀴즈 랭킹 TOP 10",
-        f"tq_{mode}_rank",
-        "🏆",
-        guild_id=interaction.guild_id,
-    )
-    medals = ["🥇", "🥈", "🥉"]
-    lines = []
-    for i, (username, best_score, attempts, correct, total) in enumerate(rows):
-        prefix = medals[i] if i < 3 else f"{i + 1}."
-        lines.append(
-            format_leaderboard_line(
-                prefix, username, best_score, attempts, correct, total
-            )
-        )
-    embed.description = "\n".join(lines)
     await interaction.edit_original_response(embed=embed)
 
 
@@ -1100,46 +1089,6 @@ async def pvp_leaderboard_cmd(interaction: discord.Interaction):
 @discord.app_commands.guild_only()
 async def pve_leaderboard_cmd(interaction: discord.Interaction):
     await show_leaderboard(interaction, "pve")
-
-
-def build_public_stats_embed(
-    stats: dict,
-    guild_id: int | None = None,
-) -> discord.Embed:
-    embed = discord.Embed(
-        description="서버의 PvP·PvE 퀴즈 누적 완주 기록입니다.",
-        color=discord.Color.teal(),
-    )
-    decorate_embed(
-        embed,
-        "타르코프 퀴즈 참가 현황",
-        "tq_participation",
-        "📈",
-        guild_id=guild_id,
-    )
-    embed.add_field(
-        name="전체 참가자",
-        value=f"**{stats['total_participants']}명**",
-        inline=True,
-    )
-    embed.add_field(
-        name="총 완주",
-        value=f"**{stats['total_attempts']}회**",
-        inline=True,
-    )
-    embed.add_field(name="\u200b", value="\u200b", inline=True)
-    for mode in ("pvp", "pve"):
-        mode_stats = stats["modes"][mode]
-        embed.add_field(
-            name=MODE_LABELS[mode],
-            value=(
-                f"참가자 **{mode_stats['participants']}명**\n"
-                f"완주 **{mode_stats['attempts']}회**"
-            ),
-            inline=True,
-        )
-    embed.set_footer(text="포기한 퀴즈는 참가·완주 통계에 포함되지 않습니다.")
-    return embed
 
 
 @bot.tree.command(
@@ -1157,7 +1106,9 @@ async def show_public_stats(
     await interaction.response.defer(ephemeral=ephemeral)
     stats = await asyncio.to_thread(database.get_public_stats, interaction.guild_id)
     await interaction.edit_original_response(
-        embed=build_public_stats_embed(stats, interaction.guild_id)
+        embed=build_public_stats_embed(
+            stats, interaction.guild_id, MODE_LABELS, decorate_embed
+        )
     )
 
 
@@ -1616,86 +1567,6 @@ async def install_supervisor_dashboard_cmd(interaction: discord.Interaction):
     )
 
 
-def format_reward_candidates(items: list[dict], kind: str) -> str:
-    if not items:
-        return "조건을 충족한 참가자가 없습니다."
-
-    lines = []
-    for index, item in enumerate(items, start=1):
-        mention = f"<@{item['user_id']}>"
-        if kind == "attempts":
-            detail = f"{item['attempts']}회 · {item['active_days']}일 참여"
-        elif kind == "days":
-            detail = f"{item['active_days']}일 · {item['attempts']}회 완주"
-        elif kind == "underdog":
-            detail = (
-                f"유효 최저 {item['lowest_sincere_score']}점 · "
-                f"평균 {item['average_score']:.0f}점"
-            )
-        elif kind == "growth":
-            detail = (
-                f"+{item['improvement']}점 · "
-                f"첫 {item['first_score']} → 최고 {item['best_score']}"
-            )
-        else:
-            detail = f"PvP·PvE 완주 · 총 {item['attempts']}회"
-        lines.append(f"`{index}.` {mention} — {detail}")
-    return "\n".join(lines)
-
-
-def build_hidden_reward_embed(
-    report: dict,
-    period_days: int,
-    guild_id: int | None = None,
-) -> discord.Embed:
-    embed = discord.Embed(
-        description=(
-            f"최근 **{period_days}일** 개별 완주 기록 기준\n"
-            f"참가자 **{report['participants']}명** · 완주 **{report['attempts']}회**"
-        ),
-        color=discord.Color.purple(),
-    )
-    decorate_embed(
-        embed,
-        "히든 상품 후보 검토",
-        "tq_reward",
-        "🎁",
-        guild_id=guild_id,
-    )
-    embed.add_field(
-        name=f"{quiz_icon_text(guild_id, 'tq_complete', '🏃')} 최다 완주",
-        value=format_reward_candidates(report["most_attempts"], "attempts"),
-        inline=False,
-    )
-    embed.add_field(
-        name=f"{quiz_icon_text(guild_id, 'tq_calendar', '📅')} 꾸준한 생존자",
-        value=format_reward_candidates(report["most_days"], "days"),
-        inline=False,
-    )
-    embed.add_field(
-        name=f"{quiz_icon_text(guild_id, 'tq_participation', '📈')} 성장상",
-        value=format_reward_candidates(report["growth"], "growth"),
-        inline=False,
-    )
-    embed.add_field(
-        name=f"{quiz_icon_text(guild_id, 'tq_underdog', '🩹')} 언더독 검토",
-        value=format_reward_candidates(report["underdogs"], "underdog"),
-        inline=False,
-    )
-    embed.add_field(
-        name=f"{quiz_icon_text(guild_id, 'tq_pvp_start', '⚔️')} 올라운더",
-        value=format_reward_candidates(report["dual_mode"], "dual"),
-        inline=False,
-    )
-    embed.set_footer(
-        text=(
-            "세부 후보는 이 기능 배포 후 완주 기록부터 계산됩니다. "
-            "언더독은 1문제 이상 정답·시간 초과 절반 이하만 포함합니다."
-        )
-    )
-    return embed
-
-
 async def show_hidden_reward_candidates(
     interaction: discord.Interaction,
     period_days: int,
@@ -1711,7 +1582,13 @@ async def show_hidden_reward_candidates(
         5,
     )
     await interaction.edit_original_response(
-        embed=build_hidden_reward_embed(report, period_days, interaction.guild_id)
+        embed=build_hidden_reward_embed(
+            report,
+            period_days,
+            interaction.guild_id,
+            decorate_embed,
+            quiz_icon_text,
+        )
     )
 
 
@@ -1759,21 +1636,6 @@ async def hidden_reward_candidates_cmd(
         return
 
     await show_hidden_reward_candidates(interaction, 기간일)
-
-
-def format_leaderboard_line(
-    prefix: str,
-    username: str,
-    best_score: int,
-    attempts: int,
-    total_correct: int,
-    total_questions: int,
-) -> str:
-    """최고 점수와 전체 도전 누적 통계를 혼동하지 않도록 랭킹 한 줄을 만든다."""
-    return (
-        f"{prefix} **{username}** — 최고 {best_score}점 "
-        f"(누적 정답 {total_correct}/{total_questions}, {attempts}회 도전)"
-    )
 
 
 class ResetConfirmView(discord.ui.View):
@@ -1862,21 +1724,9 @@ async def show_my_record(interaction: discord.Interaction, mode: str):
             )
         )
         return
-    username, best_score, last_score, attempts, correct, total = row
-    embed = discord.Embed(
-        color=discord.Color.blue(),
+    embed = build_user_record_embed(
+        row, mode, MODE_LABELS[mode], interaction.guild_id, decorate_embed
     )
-    decorate_embed(
-        embed,
-        f"{username}님의 {MODE_LABELS[mode]} 기록",
-        f"tq_{mode}_record",
-        "📊",
-        guild_id=interaction.guild_id,
-    )
-    embed.add_field(name="최고 점수", value=str(best_score))
-    embed.add_field(name="최근 점수", value=str(last_score))
-    embed.add_field(name="도전 횟수", value=str(attempts))
-    embed.add_field(name="누적 정답", value=f"{correct}/{total}")
     await interaction.edit_original_response(embed=embed)
 
 

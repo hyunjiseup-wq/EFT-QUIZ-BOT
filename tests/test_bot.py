@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import bot
 import dashboard_manager
 import quiz_icons
+import quiz_reports
 
 
 async def async_iterator(*items):
@@ -164,7 +165,9 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
             },
         }
 
-        embed = bot.build_public_stats_embed(stats)
+        embed = quiz_reports.build_public_stats_embed(
+            stats, None, bot.MODE_LABELS, bot.decorate_embed
+        )
         values = "\n".join(field.value for field in embed.fields)
 
         self.assertIn("3명", values)
@@ -194,7 +197,9 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
             "dual_mode": [candidate],
         }
 
-        embed = bot.build_hidden_reward_embed(report, 30)
+        embed = quiz_reports.build_hidden_reward_embed(
+            report, 30, None, bot.decorate_embed, bot.quiz_icon_text
+        )
         names = {field.name for field in embed.fields}
 
         self.assertIn("🏃 최다 완주", names)
@@ -393,7 +398,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(session.admin_log_message)
 
     def test_leaderboard_line_labels_accumulated_results(self):
-        line = bot.format_leaderboard_line("🥇", "테스터", 100, 2, 7, 10)
+        line = quiz_reports.format_leaderboard_line("🥇", "테스터", 100, 2, 7, 10)
 
         self.assertEqual(
             line,
