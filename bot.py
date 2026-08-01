@@ -5,7 +5,6 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import discord
-from discord.ext import commands
 
 import config
 import database
@@ -37,7 +36,11 @@ intents = discord.Intents.default()
 ADMIN_LOG_TIMEOUT = 2.0
 
 
-class QuizBot(commands.Bot):
+class QuizBot(discord.Client):
+    def __init__(self, *, intents: discord.Intents):
+        super().__init__(intents=intents)
+        self.tree = discord.app_commands.CommandTree(self)
+
     async def setup_hook(self):
         # on_ready는 재연결 시마다 반복될 수 있으므로 명령어 동기화는 여기서 1회만 수행한다.
         database.init_db()
@@ -55,7 +58,7 @@ class QuizBot(commands.Bot):
             log.info("슬래시 명령어 %s개 동기화 완료", len(synced))
 
 
-bot = QuizBot(command_prefix="!", intents=intents)
+bot = QuizBot(intents=intents)
 
 ALL_QUESTIONS = load_validated_questions(config.QUESTIONS_PATH, config.SESSION_COUNTS)
 
