@@ -12,6 +12,7 @@ import database
 import interaction_access
 import quiz_completion
 import quiz_icons
+import quiz_lifecycle
 import quiz_presenters
 import quiz_scoring
 from dashboard_manager import (
@@ -34,8 +35,6 @@ from quiz_reports import (
 )
 from quiz_session import (
     QuizSession,
-    active_sessions,
-    cleanup_session,
     count_active_sessions,
 )
 
@@ -83,6 +82,8 @@ SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v1"
 # 기존 외부 참조와 테스트 호환을 유지하는 quiz_icons 재노출 이름.
 QUIZ_EMOJI_ASSETS = quiz_icons.QUIZ_EMOJI_ASSETS
 QUIZ_ICON_DIR = quiz_icons.QUIZ_ICON_DIR
+# 기존 외부 참조와 테스트 호환을 유지하는 활성 세션 레지스트리 재노출 이름.
+active_sessions = quiz_lifecycle.active_sessions
 available_static_emoji_slots = quiz_icons.available_static_emoji_slots
 missing_quiz_emoji_names = quiz_icons.missing_quiz_emoji_names
 validate_quiz_icon_assets = quiz_icons.validate_quiz_icon_assets
@@ -693,76 +694,18 @@ async def on_ready():
 
 
 async def start_quiz(interaction: discord.Interaction, mode: str):
-    if config.QUIZ_CHANNEL_ID and interaction.channel_id != config.QUIZ_CHANNEL_ID:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_notice_quiz",
-                "🎯",
-                f"퀴즈는 <#{config.QUIZ_CHANNEL_ID}> 채널에서만 시작할 수 있어요!",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    key = (interaction.guild_id, interaction.user.id)
-    if key in active_sessions:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "이미 진행 중인 퀴즈가 있어요! `/타르코프퀴즈포기`로 종료하거나 "
-                "기존 퀴즈를 끝내주세요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    guild_active_count = count_active_sessions(interaction.guild_id)
-    if guild_active_count >= config.MAX_ACTIVE_SESSIONS_PER_GUILD:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_warning",
-                "⚠️",
-                "현재 동시 응시자가 많아 새 퀴즈를 잠시 시작할 수 없어요. "
-                "진행 중인 응시자가 끝난 뒤 다시 시도해주세요.",
-            ),
-            ephemeral=True,
-        )
-        log.warning(
-            "서버 동시 세션 상한 도달 (guild=%s, active=%s, limit=%s)",
-            interaction.guild_id,
-            guild_active_count,
-            config.MAX_ACTIVE_SESSIONS_PER_GUILD,
-        )
-        return
-
-    questions = build_session_questions(mode)
-
-    session = QuizSession(
-        mode=mode,
-        guild_id=interaction.guild_id,
-        user_id=interaction.user.id,
-        username=interaction.user.display_name,
-        channel_id=interaction.channel_id,
-        questions=questions,
+    await quiz_lifecycle.start_quiz(
+        interaction,
+        mode,
+        quiz_channel_id=config.QUIZ_CHANNEL_ID,
+        max_active_sessions=config.MAX_ACTIVE_SESSIONS_PER_GUILD,
+        build_questions=build_session_questions,
+        build_question_embed=build_question_embed,
+        answer_view_factory=AnswerView,
+        start_admin_log=start_admin_log,
+        quiz_alert_text=quiz_alert_text,
+        logger=log,
     )
-    active_sessions[key] = session
-
-    embed = build_question_embed(session)
-    view = AnswerView(session)
-    try:
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        session.message = await interaction.original_response()
-    except discord.HTTPException:
-        view.stop()
-        cleanup_session(session)
-        log.exception("퀴즈 시작 메시지 전송 실패 (user=%s)", session.user_id)
-        raise
-
-    await start_admin_log(interaction.client, session)
 
 
 @bot.tree.command(
@@ -788,56 +731,12 @@ async def start_pve_quiz(interaction: discord.Interaction):
 )
 @discord.app_commands.guild_only()
 async def give_up_cmd(interaction: discord.Interaction):
-    session = active_sessions.get((interaction.guild_id, interaction.user.id))
-    if session is None:
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_notice_quiz",
-                "🎯",
-                "진행 중인 퀴즈가 없어요.",
-            ),
-            ephemeral=True,
-        )
-        return
-
-    async with session.transition_lock:
-        if not session.is_active():
-            await interaction.response.send_message(
-                quiz_alert_text(
-                    interaction.guild_id,
-                    "tq_complete",
-                    "🏁",
-                    "이미 종료된 퀴즈예요.",
-                ),
-                ephemeral=True,
-            )
-            return
-        await finalize_admin_log(session, aborted=True, reason="응시자 포기")
-        cleanup_session(session)
-
-    # 남아있는 퀴즈 화면의 버튼 제거 시도 (실패해도 무방)
-    if session.message:
-        try:
-            await session.message.edit(
-                content=(
-                    f"{quiz_icon_text(session.guild_id, 'tq_exit', '🚪')} "
-                    "퀴즈를 포기했어요."
-                ),
-                embed=None,
-                view=None,
-            )
-        except discord.HTTPException:
-            pass
-
-    await interaction.response.send_message(
-        quiz_alert_text(
-            interaction.guild_id,
-            "tq_exit",
-            "🚪",
-            "퀴즈를 포기했어요. `/pvp퀴즈` 또는 `/pve퀴즈`로 다시 도전할 수 있어요!",
-        ),
-        ephemeral=True,
+    await quiz_lifecycle.give_up_quiz(
+        interaction,
+        finalize_admin_log=finalize_admin_log,
+        quiz_alert_text=quiz_alert_text,
+        quiz_icon_text=quiz_icon_text,
+        logger=log,
     )
 
 

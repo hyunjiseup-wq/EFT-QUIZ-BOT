@@ -114,6 +114,7 @@ tarkov_quiz_bot/
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
 ├── dashboard_icon_installer.py # 아이콘 등록·슬롯 검사·대시보드 재갱신
 ├── dashboard_installation.py  # 수동 대시보드 설치·권한·오류 처리
+├── quiz_lifecycle.py          # 퀴즈 시작·포기·세션 정리 생명주기
 ├── quiz_completion.py         # 문제 전환·결과 저장·메시지 실패 정리
 ├── quiz_presenters.py         # 문제·제출·최종 결과 화면 표시
 ├── quiz_scoring.py            # 답변 매핑·채점·시간 초과 상태 변경
@@ -131,6 +132,7 @@ tarkov_quiz_bot/
 │   ├── test_interaction_access.py # 관리자 권한·오류 응답 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
+│   ├── test_quiz_lifecycle.py # 시작·포기·동시 세션 회귀 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
 │   ├── test_project_config.py # pyproject/requirements 의존성 일치 테스트
 │   ├── test_quiz_presenters.py # 퀴즈 화면·정보 비공개 표시 테스트
@@ -159,6 +161,8 @@ tarkov_quiz_bot/
   모든 문제별 기록은 임베드용 메모리에 계속 보존됩니다.
 - 한 서버의 동시 진행 세션은 기본 250개로 제한합니다. 상한에 도달하면 진행 중 세션이
   끝날 때까지 신규 시작만 잠시 제한하며 기존 퀴즈는 계속 진행됩니다.
+- 같은 사용자의 동시 시작은 첫 세션을 먼저 예약해 중복 생성을 막고, 시작 화면 전송이나
+  포기 로그 정리가 실패해도 활성 세션 레지스트리를 자동으로 회수합니다.
 
 필요하면 `.env`에서 `MAX_ACTIVE_SESSIONS_PER_GUILD`와 `ADMIN_LOG_UPDATE_EVERY`를 조정할 수
 있습니다. 동시 세션 상한은 전체 서버 인원수가 아니라 **같은 순간에 진행 중인 퀴즈 수**입니다.
@@ -201,7 +205,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 
