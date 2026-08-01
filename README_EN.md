@@ -110,6 +110,7 @@ python bot.py
 ```
 tarkov_quiz_bot/
 ├── bot.py                     # Discord button UI, logging, and commands
+├── admin_log.py               # Admin spectator-log creation and batched updates
 ├── quiz_session.py            # Session state and active-session registry
 ├── quiz_icons.py              # UI icon manifest, hashes, and slot checks
 ├── dashboard_manager.py       # Dashboard lookup, pinning, and emoji-cache helpers
@@ -121,6 +122,7 @@ tarkov_quiz_bot/
 ├── check_questions.py         # Question stats + patch-volatility check CLI
 ├── assets/dashboard_icons/    # 21 transparent 128px Discord UI icons
 ├── tests/
+│   ├── test_admin_log.py      # Admin spectator-log and embed-limit tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
 │   ├── test_project_config.py # pyproject/requirements dependency consistency
@@ -192,7 +194,7 @@ refuses to run with invalid questions.
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_reports.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_reports.py quiz_session.py check_questions.py
 ruff check .
 ```
 
