@@ -111,6 +111,7 @@ tarkov_quiz_bot/
 ├── quiz_session.py            # 세션 상태와 활성 세션 레지스트리
 ├── quiz_icons.py              # UI 아이콘 목록·해시·슬롯 검사
 ├── dashboard_manager.py       # 대시보드 탐색·고정·이모지 캐시 처리
+├── quiz_completion.py         # 문제 전환·결과 저장·메시지 실패 정리
 ├── quiz_presenters.py         # 문제·제출·최종 결과 화면 표시
 ├── quiz_scoring.py            # 답변 매핑·채점·시간 초과 상태 변경
 ├── quiz_reports.py            # 랭킹·통계·히든 상품 임베드 표시
@@ -123,6 +124,7 @@ tarkov_quiz_bot/
 ├── tests/
 │   ├── test_admin_log.py      # 관리자 관전 로그·임베드 제한 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
+│   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
 │   ├── test_project_config.py # pyproject/requirements 의존성 일치 테스트
 │   ├── test_quiz_presenters.py # 퀴즈 화면·정보 비공개 표시 테스트
@@ -193,7 +195,7 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 ```bash
 python check_questions.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py question_bank.py quiz_completion.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
 ruff check .
 ```
 
