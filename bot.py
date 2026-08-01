@@ -9,6 +9,7 @@ import admin_log
 import config
 import database
 import quiz_presenters
+import quiz_scoring
 from dashboard_manager import (
     channel_dashboard_emojis,
     ensure_dashboard_pinned,
@@ -576,26 +577,15 @@ class AnswerView(discord.ui.View):
             if not session.is_active() or session.index != self.question_index:
                 return
 
-            q = session.current_question
-            order = session.current_shuffled_choices
-            chosen_original_idx = order[display_index]
-            is_correct = chosen_original_idx == q["answer"]
-
-            diff = q["difficulty"]
-            session.per_difficulty[diff][1] += 1
-            if is_correct:
-                session.score += config.POINTS[diff]
-                session.correct_count += 1
-                session.per_difficulty[diff][0] += 1
-
+            scored = quiz_scoring.score_answer(session, display_index)
             result_text = build_result_text(timed_out=False, guild_id=session.guild_id)
 
             await update_admin_log(
                 session,
-                q,
-                is_correct,
+                scored.question,
+                scored.is_correct,
                 timed_out=False,
-                chosen_text=q["choices"][chosen_original_idx],
+                chosen_text=scored.chosen_text,
             )
             await advance_or_finish(interaction, session, result_text)
 
@@ -606,13 +596,15 @@ class AnswerView(discord.ui.View):
             if not session.is_active() or session.index != self.question_index:
                 return
 
-            q = session.current_question
-            diff = q["difficulty"]
-            session.per_difficulty[diff][1] += 1
-            session.timed_out_count += 1
+            scored = quiz_scoring.score_timeout(session)
             result_text = build_result_text(timed_out=True, guild_id=session.guild_id)
 
-            await update_admin_log(session, q, False, timed_out=True)
+            await update_admin_log(
+                session,
+                scored.question,
+                scored.is_correct,
+                timed_out=scored.timed_out,
+            )
             await advance_or_finish(None, session, result_text)
 
 
