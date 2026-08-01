@@ -127,12 +127,14 @@ tarkov_quiz_bot/
 ├── database.py                # SQLite leaderboard
 ├── questions.json             # Question pool data
 ├── check_questions.py         # Question stats + patch-volatility check CLI
+├── load_test.py               # Isolated synthetic load check for 8,500 users
 ├── assets/dashboard_icons/    # 21 transparent 128px Discord UI icons
 ├── tests/
 │   ├── test_admin_log.py      # Admin spectator-log and embed-limit tests
 │   ├── test_dashboard_icon_installer.py # Icon permission, slot, and partial-failure tests
 │   ├── test_dashboard_installation.py # Manual install, permission, and HTTP error tests
 │   ├── test_interaction_access.py # Admin access and error-response tests
+│   ├── test_load_test.py      # Synthetic-load isolation and aggregation tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_quiz_lifecycle.py # Start, give-up, and concurrent-session tests
@@ -176,6 +178,8 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
   creating a duplicate.
 - Dashboard versions are not shown in the UI. Internal button IDs and legacy v1/v2 footers remain
   recognizable, so older messages are updated in place to a footer-free dashboard.
+- `python load_test.py` creates 8,500 users and 25,500 attempts in a temporary database, never the
+  operating database, then checks public stats, rankings, reward reports, and 200 concurrent reads.
 
 `MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
 limit is the number of quizzes active at the same instant, not the Discord server's member count.
@@ -219,8 +223,9 @@ refuses to run with invalid questions.
 
 ```bash
 python check_questions.py
+python load_test.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
 ruff check .
 ```
 

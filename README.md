@@ -124,12 +124,14 @@ tarkov_quiz_bot/
 ├── database.py                # SQLite 리더보드
 ├── questions.json             # 문제 풀 데이터
 ├── check_questions.py         # 문제 통계 + 패치 변동형 점검 CLI
+├── load_test.py               # 운영 DB와 격리된 8,500명 합성 부하 검증
 ├── assets/dashboard_icons/    # Discord용 128px 투명 UI 아이콘 21종
 ├── tests/
 │   ├── test_admin_log.py      # 관리자 관전 로그·임베드 제한 테스트
 │   ├── test_dashboard_icon_installer.py # 아이콘 권한·슬롯·부분 실패 테스트
 │   ├── test_dashboard_installation.py # 수동 설치·권한·HTTP 오류 테스트
 │   ├── test_interaction_access.py # 관리자 권한·오류 응답 테스트
+│   ├── test_load_test.py      # 합성 부하 검증의 격리·집계 테스트
 │   ├── test_bot.py            # Discord UI·대시보드·응답 흐름 테스트
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_quiz_lifecycle.py # 시작·포기·동시 세션 회귀 테스트
@@ -171,6 +173,8 @@ tarkov_quiz_bot/
   최근 기록 100개 밖으로 밀려도 재시작 시 기존 메시지를 직접 찾아 중복 생성을 방지합니다.
 - 대시보드에는 버전을 표시하지 않습니다. 내부 버튼 ID와 기존 v1·v2 footer를 함께 인식해
   예전 메시지도 같은 위치에서 footer 없는 화면으로 갱신합니다.
+- `python load_test.py`는 운영 DB를 건드리지 않는 임시 DB에 8,500명·25,500회 응시를 만들고,
+  공개 통계·랭킹·히든 상품 후보 집계와 동시 랭킹 조회 200회를 검증합니다.
 
 필요하면 `.env`에서 `MAX_ACTIVE_SESSIONS_PER_GUILD`와 `ADMIN_LOG_UPDATE_EVERY`를 조정할 수
 있습니다. 동시 세션 상한은 전체 서버 인원수가 아니라 **같은 순간에 진행 중인 퀴즈 수**입니다.
@@ -212,8 +216,9 @@ PvP 퀴즈는 `common+pvp`, PvE 퀴즈는 `common+pve` 문제만 출제합니다
 
 ```bash
 python check_questions.py
+python load_test.py
 python -m unittest discover -s tests -v
-python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
 ruff check .
 ```
 

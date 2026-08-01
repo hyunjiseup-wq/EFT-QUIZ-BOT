@@ -35,6 +35,9 @@ jobs:
           PYTHONPATH: .
         run: python -m unittest discover -s tests -v
 
+      - name: Run isolated synthetic load check
+        run: python load_test.py
+
       - name: Validate question bank
         run: python check_questions.py
 
@@ -42,7 +45,7 @@ jobs:
         run: >-
           python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py
           dashboard_installation.py database.py dashboard_manager.py interaction_access.py question_bank.py quiz_completion.py quiz_icons.py quiz_lifecycle.py
-          quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py
+          quiz_presenters.py quiz_reports.py quiz_scoring.py quiz_session.py check_questions.py load_test.py
 
       - name: Run Ruff
         run: ruff check .
