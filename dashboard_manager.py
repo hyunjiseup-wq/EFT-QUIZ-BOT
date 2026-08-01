@@ -21,8 +21,18 @@ async def find_dashboard_message(
     channel,
     bot_user: discord.ClientUser | None,
     marker: str,
+    preferred_message_id: int | None = None,
 ) -> discord.Message | None:
-    """고정 메시지를 우선하고, 없으면 최근 메시지에서 기존 대시보드를 찾는다."""
+    """저장 ID, 고정 메시지, 최근 기록 순으로 기존 대시보드를 찾는다."""
+    if preferred_message_id and hasattr(channel, "fetch_message"):
+        try:
+            message = await channel.fetch_message(preferred_message_id)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            pass
+        else:
+            if is_dashboard_message(message, bot_user, marker):
+                return message
+
     if hasattr(channel, "pins"):
         async for message in channel.pins(limit=50):
             if is_dashboard_message(message, bot_user, marker):

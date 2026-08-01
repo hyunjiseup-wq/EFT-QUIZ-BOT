@@ -277,6 +277,36 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         existing.edit.assert_awaited_once()
         channel.history.assert_not_called()
 
+    async def test_upsert_dashboard_uses_persisted_message_before_history(self):
+        existing = Mock()
+        existing.id = 999
+        existing.author = bot.bot.user
+        existing.pinned = True
+        existing.embeds = [Mock()]
+        existing.embeds[0].footer.text = bot.DASHBOARD_MARKER
+        existing.edit = AsyncMock()
+        channel = SimpleNamespace(
+            id=20,
+            guild=SimpleNamespace(id=10, emojis=[]),
+            fetch_message=AsyncMock(return_value=existing),
+            pins=Mock(return_value=empty_async_iterator()),
+            history=Mock(return_value=empty_async_iterator()),
+            send=AsyncMock(),
+        )
+
+        with (
+            patch.object(bot.database, "get_dashboard_message", return_value=(20, 999)),
+            patch.object(bot.database, "save_dashboard_message") as save,
+        ):
+            message, created = await bot.upsert_dashboard(channel)
+
+        self.assertFalse(created)
+        self.assertIs(message, existing)
+        channel.fetch_message.assert_awaited_once_with(999)
+        channel.pins.assert_not_called()
+        channel.history.assert_not_called()
+        save.assert_called_once_with(10, "quiz", 20, 999)
+
     async def test_supervisor_dashboard_does_not_replace_quiz_dashboard(self):
         quiz_dashboard = Mock()
         quiz_dashboard.author = bot.bot.user
