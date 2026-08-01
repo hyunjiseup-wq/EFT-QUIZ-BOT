@@ -40,8 +40,8 @@ jobs:
       - name: Compile Python sources
         run: >-
           python -m py_compile admin_log.py bot.py config.py database.py dashboard_manager.py
-          question_bank.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_session.py
-          check_questions.py
+          question_bank.py quiz_icons.py quiz_presenters.py quiz_reports.py quiz_scoring.py
+          quiz_session.py check_questions.py
 
       - name: Run Ruff
         run: ruff check .
