@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import random
 import time
@@ -1184,6 +1185,31 @@ async def find_dashboard_message(
     return None
 
 
+async def ensure_dashboard_pinned(message, label: str) -> bool:
+    """대시보드가 기록에 묻히지 않도록 고정하며, 권한 부족은 실행을 막지 않는다."""
+    if getattr(message, "pinned", False) is True:
+        return True
+
+    pin = getattr(message, "pin", None)
+    if pin is None:
+        return False
+    try:
+        result = pin(reason=f"타르코프 퀴즈 {label} 대시보드 자동 고정")
+        if not inspect.isawaitable(result):
+            return False
+        await result
+    except discord.Forbidden:
+        log.warning(
+            "%s 대시보드를 고정하지 못했습니다. 봇의 '메시지 관리' 권한을 확인하세요.",
+            label,
+        )
+        return False
+    except discord.HTTPException as error:
+        log.warning("%s 대시보드 고정 실패: %s", label, error)
+        return False
+    return True
+
+
 def channel_dashboard_emojis(channel) -> list[discord.Emoji]:
     """Mock/부분 채널에서도 안전하게 서버 이모지 캐시를 꺼낸다."""
     guild = getattr(channel, "guild", None)
@@ -1206,9 +1232,11 @@ async def upsert_dashboard(
     embed = build_dashboard_embed(resolved_emojis)
     if dashboard is None:
         dashboard = await channel.send(embed=embed, view=view)
+        await ensure_dashboard_pinned(dashboard, "퀴즈")
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
+    await ensure_dashboard_pinned(dashboard, "퀴즈")
     return dashboard, False
 
 
@@ -1227,9 +1255,11 @@ async def upsert_supervisor_dashboard(
             embed=embed,
             view=view,
         )
+        await ensure_dashboard_pinned(dashboard, "감독")
         return dashboard, True
 
     await dashboard.edit(embed=embed, view=view)
+    await ensure_dashboard_pinned(dashboard, "감독")
     return dashboard, False
 
 

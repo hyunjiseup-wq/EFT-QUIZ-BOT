@@ -214,6 +214,25 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message, "new-dashboard")
         channel.send.assert_awaited_once()
 
+    async def test_dashboard_pin_failure_does_not_break_dashboard(self):
+        response = Mock(status=403, reason="Forbidden", headers={})
+        error = bot.discord.Forbidden(response, "forbidden")
+        message = SimpleNamespace(pinned=False, pin=AsyncMock(side_effect=error))
+
+        with patch.object(bot.log, "warning") as log_warning:
+            pinned = await bot.ensure_dashboard_pinned(message, "감독")
+
+        self.assertFalse(pinned)
+        log_warning.assert_called_once()
+
+    async def test_dashboard_is_pinned_when_permission_is_available(self):
+        message = SimpleNamespace(pinned=False, pin=AsyncMock())
+
+        pinned = await bot.ensure_dashboard_pinned(message, "감독")
+
+        self.assertTrue(pinned)
+        message.pin.assert_awaited_once_with(reason="타르코프 퀴즈 감독 대시보드 자동 고정")
+
     async def test_upsert_dashboard_updates_pinned_message(self):
         existing = Mock()
         existing.author = bot.bot.user

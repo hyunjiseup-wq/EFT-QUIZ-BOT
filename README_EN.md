@@ -16,7 +16,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup.
   An administrator can also run `/퀴즈대시보드설치` in a channel; running it again updates
   an existing pinned dashboard (or one found in the latest 100 messages) instead of posting a duplicate.
-  Pinning it is recommended, and its buttons survive bot restarts.
+  The bot pins an installed or refreshed dashboard automatically, and its buttons survive restarts.
 - A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
   It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
   rankings. Only server administrators can use its buttons.
@@ -99,8 +99,9 @@ python bot.py
 ```
 
 ### Discord Developer Portal configuration
-- Bot permissions: `applications.commands`, `bot` scope. Installing the custom dashboard icons also
-  requires the bot role's **Create Expressions** or **Manage Emojis and Stickers** permission.
+- Bot permissions: `applications.commands`, `bot` scope. Auto-pinning dashboards requires
+  **Manage Messages**; installing custom icons also requires **Create Expressions** or
+  **Manage Emojis and Stickers**.
 - Channel permissions: allow "View Channel", "Send Messages", "Read Message History", and "Use Slash Commands" in the quiz channel
 - Spectator log channel: grant the bot "Send Messages"; hide the channel from regular users
 
