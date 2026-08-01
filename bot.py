@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import random
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -9,6 +8,7 @@ import discord
 import admin_log
 import config
 import database
+import quiz_presenters
 from dashboard_manager import (
     channel_dashboard_emojis,
     ensure_dashboard_pinned,
@@ -515,40 +515,18 @@ class SupervisorDashboardView(discord.ui.View):
 
 
 def build_question_embed(session: QuizSession) -> discord.Embed:
-    q = session.current_question
-
-    # 매번 보기 순서를 섞어서 정답 위치 암기를 방지
-    order = list(range(len(q["choices"])))
-    random.shuffle(order)
-    session.current_shuffled_choices = order
-
-    # 난이도/배점은 응시자에게 비공개 (관리자 관전 로그에서만 표시)
-    embed = discord.Embed(
-        title=f"{MODE_LABELS[session.mode]} 문제 {session.index + 1} / {session.total}",
-        description=q["question"],
-        color=discord.Color.dark_gold(),
+    return quiz_presenters.build_question_embed(
+        session,
+        mode_labels=MODE_LABELS,
+        find_quiz_emoji=find_quiz_emoji,
     )
-    emoji = find_quiz_emoji("tq_notice_quiz", guild_id=session.guild_id)
-    if emoji:
-        embed.set_thumbnail(url=str(emoji.url))
-    labels = ["🇦", "🇧", "🇨", "🇩"]
-    for i, orig_idx in enumerate(order):
-        embed.add_field(name=labels[i], value=q["choices"][orig_idx], inline=False)
-    # 진행 중 점수를 보여주면 직전 문제의 정오답이 드러나므로 표시하지 않는다
-    embed.set_footer(text=f"제한시간 {config.QUESTION_TIME_LIMIT}초")
-    return embed
 
 
 def build_result_text(timed_out: bool, guild_id: int | None = None) -> str:
-    # 응시자에게는 정답/오답 여부와 정답을 공개하지 않는다 (관전 로그에서만 확인 가능).
-    if timed_out:
-        return (
-            f"{quiz_icon_text(guild_id, 'tq_timeout', '⏰')} "
-            "시간 초과! 다음 문제로 넘어갑니다."
-        )
-    return (
-        f"{quiz_icon_text(guild_id, 'tq_submitted', '📨')} "
-        "답변이 제출되었습니다."
+    return quiz_presenters.build_result_text(
+        timed_out,
+        guild_id,
+        quiz_icon_text=quiz_icon_text,
     )
 
 
@@ -715,24 +693,11 @@ async def advance_or_finish(interaction, session: QuizSession, result_text: str)
 
 
 def build_final_embed(session: QuizSession) -> discord.Embed:
-    embed = discord.Embed(
-        description=f"**{session.username}**님의 결과입니다.",
-        color=discord.Color.green(),
+    return quiz_presenters.build_final_embed(
+        session,
+        mode_labels=MODE_LABELS,
+        decorate_embed=decorate_embed,
     )
-    decorate_embed(
-        embed,
-        "퀴즈 완료!",
-        "tq_complete",
-        "🏁",
-        guild_id=session.guild_id,
-    )
-    embed.add_field(name="총점", value=f"{session.score}점", inline=True)
-    embed.add_field(name="모드", value=MODE_LABELS[session.mode], inline=True)
-    embed.add_field(name="정답 수", value=f"{session.correct_count} / {session.total}", inline=True)
-    embed.set_footer(
-        text=f"/{session.mode}퀴즈랭킹 명령어로 서버 랭킹을 확인해보세요."
-    )
-    return embed
 
 
 # ---------------------------------------------------------------------------
