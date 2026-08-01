@@ -76,8 +76,12 @@ QUESTIONS_BY_MODE = {
     for mode in ("pvp", "pve")
 }
 MODE_LABELS = {"pvp": "PvP", "pve": "PvE"}
-DASHBOARD_MARKER = "타르코프 퀴즈 대시보드 · v1"
-SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v1"
+DASHBOARD_MARKER = "타르코프 퀴즈 대시보드 · v2"
+SUPERVISOR_DASHBOARD_MARKER = "타르코프 퀴즈 감독 대시보드 · v2"
+LEGACY_DASHBOARD_MARKERS = ("타르코프 퀴즈 대시보드 · v1",)
+LEGACY_SUPERVISOR_DASHBOARD_MARKERS = (
+    "타르코프 퀴즈 감독 대시보드 · v1",
+)
 
 # 기존 외부 참조와 테스트 호환을 유지하는 quiz_icons 재노출 이름.
 QUIZ_EMOJI_ASSETS = quiz_icons.QUIZ_EMOJI_ASSETS
@@ -902,6 +906,7 @@ async def upsert_dashboard(
         bot.user,
         DASHBOARD_MARKER,
         preferred_message_id,
+        LEGACY_DASHBOARD_MARKERS,
     )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = QuizDashboardView(resolved_emojis)
@@ -930,6 +935,7 @@ async def upsert_supervisor_dashboard(
         bot.user,
         SUPERVISOR_DASHBOARD_MARKER,
         preferred_message_id,
+        LEGACY_SUPERVISOR_DASHBOARD_MARKERS,
     )
     resolved_emojis = channel_dashboard_emojis(channel) if emojis is None else emojis
     view = SupervisorDashboardView(resolved_emojis)

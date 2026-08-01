@@ -174,6 +174,8 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 - Quiz and supervisor dashboard message IDs are stored in SQLite. Even without pin permission or
   after a dashboard leaves the latest 100 messages, startup retrieves it directly instead of
   creating a duplicate.
+- Dashboard UI markers are also v2. Existing v1 footers are recognized and updated in place, so
+  the marker migration does not create duplicate dashboards.
 
 `MAX_ACTIVE_SESSIONS_PER_GUILD` and `ADMIN_LOG_UPDATE_EVERY` can be adjusted in `.env`. The session
 limit is the number of quizzes active at the same instant, not the Discord server's member count.

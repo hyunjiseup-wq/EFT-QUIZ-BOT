@@ -8,12 +8,13 @@ def is_dashboard_message(
     message: discord.Message,
     bot_user: discord.ClientUser | None,
     marker: str,
+    legacy_markers: tuple[str, ...] = (),
 ) -> bool:
-    """봇이 만든 대시보드인지 footer marker로 판별한다."""
+    """현재 또는 이전 footer marker를 가진 봇 대시보드인지 판별한다."""
     return bool(
         message.author == bot_user
         and message.embeds
-        and message.embeds[0].footer.text == marker
+        and message.embeds[0].footer.text in (marker, *legacy_markers)
     )
 
 
@@ -22,6 +23,7 @@ async def find_dashboard_message(
     bot_user: discord.ClientUser | None,
     marker: str,
     preferred_message_id: int | None = None,
+    legacy_markers: tuple[str, ...] = (),
 ) -> discord.Message | None:
     """저장 ID, 고정 메시지, 최근 기록 순으로 기존 대시보드를 찾는다."""
     if preferred_message_id and hasattr(channel, "fetch_message"):
@@ -30,16 +32,16 @@ async def find_dashboard_message(
         except (discord.Forbidden, discord.NotFound, discord.HTTPException):
             pass
         else:
-            if is_dashboard_message(message, bot_user, marker):
+            if is_dashboard_message(message, bot_user, marker, legacy_markers):
                 return message
 
     if hasattr(channel, "pins"):
         async for message in channel.pins(limit=50):
-            if is_dashboard_message(message, bot_user, marker):
+            if is_dashboard_message(message, bot_user, marker, legacy_markers):
                 return message
 
     async for message in channel.history(limit=100):
-        if is_dashboard_message(message, bot_user, marker):
+        if is_dashboard_message(message, bot_user, marker, legacy_markers):
             return message
     return None
 

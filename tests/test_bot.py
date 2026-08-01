@@ -156,6 +156,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         values = "\n".join(field.value for field in embed.fields)
 
         self.assertEqual(embed.footer.text, bot.DASHBOARD_MARKER)
+        self.assertTrue(embed.footer.text.endswith("v2"))
         self.assertIn(str(len(bot.ALL_QUESTIONS)), values)
         self.assertIn(str(bot.config.TOTAL_QUESTIONS), values)
         self.assertIn(str(bot.config.QUESTION_TIME_LIMIT), values)
@@ -165,6 +166,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(embed.footer.text, bot.SUPERVISOR_DASHBOARD_MARKER)
         self.assertNotEqual(embed.footer.text, bot.DASHBOARD_MARKER)
+        self.assertTrue(embed.footer.text.endswith("v2"))
 
     def test_tutorial_explains_both_modes_and_give_up(self):
         embed = bot.build_tutorial_embed()
@@ -277,6 +279,27 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         existing.edit.assert_awaited_once()
         channel.history.assert_not_called()
 
+    async def test_upsert_dashboard_migrates_legacy_v1_footer_in_place(self):
+        existing = Mock()
+        existing.author = bot.bot.user
+        existing.pinned = True
+        existing.embeds = [Mock()]
+        existing.embeds[0].footer.text = bot.LEGACY_DASHBOARD_MARKERS[0]
+        existing.edit = AsyncMock()
+        channel = Mock()
+        channel.pins.return_value = async_iterator(existing)
+        channel.history.return_value = empty_async_iterator()
+        channel.send = AsyncMock()
+
+        message, created = await bot.upsert_dashboard(channel)
+
+        self.assertFalse(created)
+        self.assertIs(message, existing)
+        channel.send.assert_not_awaited()
+        updated_embed = existing.edit.await_args.kwargs["embed"]
+        self.assertEqual(updated_embed.footer.text, bot.DASHBOARD_MARKER)
+        self.assertTrue(updated_embed.footer.text.endswith("v2"))
+
     async def test_upsert_dashboard_uses_persisted_message_before_history(self):
         existing = Mock()
         existing.id = 999
@@ -322,6 +345,27 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(created)
         self.assertEqual(message, "new-supervisor-dashboard")
         channel.send.assert_awaited_once()
+
+    async def test_supervisor_dashboard_migrates_legacy_v1_footer_in_place(self):
+        existing = Mock()
+        existing.author = bot.bot.user
+        existing.pinned = True
+        existing.embeds = [Mock()]
+        existing.embeds[0].footer.text = bot.LEGACY_SUPERVISOR_DASHBOARD_MARKERS[0]
+        existing.edit = AsyncMock()
+        channel = Mock()
+        channel.pins.return_value = async_iterator(existing)
+        channel.history.return_value = empty_async_iterator()
+        channel.send = AsyncMock()
+
+        message, created = await bot.upsert_supervisor_dashboard(channel)
+
+        self.assertFalse(created)
+        self.assertIs(message, existing)
+        channel.send.assert_not_awaited()
+        updated_embed = existing.edit.await_args.kwargs["embed"]
+        self.assertEqual(updated_embed.footer.text, bot.SUPERVISOR_DASHBOARD_MARKER)
+        self.assertTrue(updated_embed.footer.text.endswith("v2"))
 
     async def test_leaderboard_defers_before_database_result(self):
         interaction = Mock()
