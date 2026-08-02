@@ -66,6 +66,7 @@ class OperationsCheckTests(unittest.TestCase):
             "pve_pool_size": 441,
             "active_session_count": 2,
             "max_active_sessions": 250,
+            "pending_admin_logs": 0,
             "missing_icons": [],
             "total_icons": 21,
         }
@@ -103,6 +104,22 @@ class OperationsCheckTests(unittest.TestCase):
         self.assertIn("퀴즈 채널", errors)
         self.assertIn("메시지 보내기", errors["퀴즈 채널"])
         self.assertIn("대시보드 등록", errors)
+
+    def test_admin_log_backlog_warns_before_reaching_session_limit(self):
+        warnings = {
+            check.title: check.detail
+            for check in self.collect(pending_admin_logs=26)
+            if check.level == "warning"
+        }
+        errors = {
+            check.title: check.detail
+            for check in self.collect(pending_admin_logs=250)
+            if check.level == "error"
+        }
+
+        self.assertIn("관전 로그 큐", warnings)
+        self.assertIn("26개", warnings["관전 로그 큐"])
+        self.assertIn("관전 로그 큐", errors)
 
 
 if __name__ == "__main__":

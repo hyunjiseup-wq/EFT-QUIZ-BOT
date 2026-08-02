@@ -48,8 +48,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 - `/대시보드아이콘설치` (install-dashboard-icons): **Server admin only.** Uploads any missing
   dashboard icons as server custom emojis and applies them to both dashboards.
 - `/퀴즈봇상태점검` (operations-check): **Server admin only.** Performs a read-only check of
-  database integrity/schema, question pools, active sessions, quiz/supervisor channel permissions
-  and visibility, dashboard registration, and custom icons. Only the invoking admin sees it.
+  database integrity/schema, question pools, active sessions, the server's pending spectator-log work,
+  quiz/supervisor channel permissions and visibility, dashboard registration, and custom icons.
+  Only the invoking admin sees it.
 - `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
   for most completions, active days, improvement, underdog, and dual-mode participation in the
   admin review channel (30 days by default, up to 365).

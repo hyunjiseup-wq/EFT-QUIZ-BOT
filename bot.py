@@ -1100,6 +1100,7 @@ async def operations_check_cmd(interaction: discord.Interaction):
         pve_pool_size=sum(len(pool) for pool in QUESTIONS_BY_MODE["pve"].values()),
         active_session_count=count_active_sessions(interaction.guild_id),
         max_active_sessions=config.MAX_ACTIVE_SESSIONS_PER_GUILD,
+        pending_admin_logs=admin_log.pending_admin_log_count(interaction.guild_id),
         missing_icons=missing_quiz_emoji_names(guild.emojis),
         total_icons=len(QUIZ_EMOJI_ASSETS),
     )

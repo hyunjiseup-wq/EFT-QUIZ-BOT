@@ -86,15 +86,21 @@ class AdminLogAsyncTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertGreaterEqual(len(session.admin_log_lines), 2)
         self.assertFalse(session.admin_log_task.done())
+        self.assertEqual(admin_log.pending_admin_log_count(), 1)
+        self.assertEqual(admin_log.pending_admin_log_count(10), 1)
+        self.assertEqual(admin_log.pending_admin_log_count(999), 0)
 
         release_send.set()
         await session.admin_log_task
+        await asyncio.sleep(0)
 
         channel.send.assert_awaited_once()
         message.edit.assert_awaited_once()
         final_embed = message.edit.await_args.kwargs["embed"]
         self.assertEqual(final_embed.fields[0].value, "🟢 완료")
         self.assertIsNone(session.admin_log_message)
+        self.assertEqual(admin_log.pending_admin_log_count(), 0)
+        self.assertEqual(admin_log.pending_admin_log_count(10), 0)
 
 
 if __name__ == "__main__":
