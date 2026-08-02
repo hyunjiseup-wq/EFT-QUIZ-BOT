@@ -7,6 +7,19 @@ import discord
 import config
 from quiz_session import QuizSession
 
+_pending_admin_log_tasks: dict[asyncio.Task, int] = {}
+
+
+def pending_admin_log_count(guild_id: int | None = None) -> int:
+    """아직 Discord 전송을 마치지 못한 관전 로그 작업 수를 반환한다."""
+    if guild_id is None:
+        return len(_pending_admin_log_tasks)
+    return sum(task_guild_id == guild_id for task_guild_id in _pending_admin_log_tasks.values())
+
+
+def _forget_admin_log_task(task: asyncio.Task) -> None:
+    _pending_admin_log_tasks.pop(task, None)
+
 
 async def get_admin_channel(client: discord.Client, logger: logging.Logger):
     if not config.ADMIN_LOG_CHANNEL_ID:
@@ -145,7 +158,7 @@ def _ensure_admin_log_flush(
     task = session.admin_log_task
     if task is not None and not task.done():
         return
-    session.admin_log_task = asyncio.create_task(
+    task = asyncio.create_task(
         _flush_admin_log(
             session,
             mode_labels=mode_labels,
@@ -154,6 +167,9 @@ def _ensure_admin_log_flush(
             logger=logger,
         )
     )
+    session.admin_log_task = task
+    _pending_admin_log_tasks[task] = session.guild_id
+    task.add_done_callback(_forget_admin_log_task)
 
 
 async def start_admin_log(

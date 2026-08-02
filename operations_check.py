@@ -116,6 +116,7 @@ def collect_operations_checks(
     pve_pool_size: int,
     active_session_count: int,
     max_active_sessions: int,
+    pending_admin_logs: int,
     missing_icons: list[str],
     total_icons: int,
 ) -> list[CheckResult]:
@@ -157,6 +158,19 @@ def collect_operations_checks(
             f"{active_session_count:,}/{max_active_sessions:,}개 사용 중",
         )
     )
+    backlog_warning = max(5, max_active_sessions // 10)
+    if pending_admin_logs >= max_active_sessions:
+        backlog_level = "error"
+    elif pending_admin_logs > backlog_warning:
+        backlog_level = "warning"
+    else:
+        backlog_level = "ok"
+    backlog_detail = (
+        "대기 없음"
+        if pending_admin_logs == 0
+        else f"{pending_admin_logs:,}개 전송·갱신 처리 중"
+    )
+    checks.append(CheckResult(backlog_level, "관전 로그 큐", backlog_detail))
     checks.append(_channel_check(bot, guild, quiz_channel_id, supervisor=False))
     checks.append(_channel_check(bot, guild, admin_channel_id, supervisor=True))
 
