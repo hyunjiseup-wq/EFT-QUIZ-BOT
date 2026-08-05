@@ -1,8 +1,9 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import discord
 
+import guild_channels
 from quiz_session import (
     QuizSession,
     active_sessions,
@@ -39,7 +40,7 @@ async def start_quiz(
     interaction: discord.Interaction,
     mode: str,
     *,
-    quiz_channel_id: int,
+    quiz_channel_ids: Sequence[int],
     max_active_sessions: int,
     build_questions: Callable[[str], list[dict]],
     build_question_embed: Callable[[QuizSession], discord.Embed],
@@ -49,13 +50,24 @@ async def start_quiz(
     logger: logging.Logger,
 ) -> QuizSession | None:
     """새 세션을 등록하고 첫 화면 전송 실패 시 등록을 되돌린다."""
-    if quiz_channel_id and interaction.channel_id != quiz_channel_id:
+    if quiz_channel_ids and interaction.channel_id not in quiz_channel_ids:
+        # 설정 채널은 서버마다 다르므로 안내에는 이 서버의 채널만 언급한다.
+        allowed_channel_id = guild_channels.guild_channel_id(
+            interaction.client,
+            quiz_channel_ids,
+            interaction.guild_id,
+        )
+        notice = (
+            f"퀴즈는 <#{allowed_channel_id}> 채널에서만 시작할 수 있어요!"
+            if allowed_channel_id
+            else "이 서버에는 퀴즈 채널이 설정되어 있지 않아요. 서버 관리자에게 문의해주세요."
+        )
         await interaction.response.send_message(
             quiz_alert_text(
                 interaction.guild_id,
                 "tq_notice_quiz",
                 "🎯",
-                f"퀴즈는 <#{quiz_channel_id}> 채널에서만 시작할 수 있어요!",
+                notice,
             ),
             ephemeral=True,
         )

@@ -13,13 +13,16 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 ## How it works
 
 - The public **player dashboard** provides **Start PvP · Start PvE · Tutorial · mode ranking · personal record** buttons.
-  When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup.
+  When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup
+  (list one channel per server, separated by commas, when running across several servers).
   An administrator can also run `/퀴즈대시보드설치` in a channel; running it again updates
   an existing pinned dashboard (or one found in the latest 100 messages) instead of posting a duplicate.
   The bot pins an installed or refreshed dashboard automatically, and its buttons survive restarts.
 - A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
   It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
-  rankings. Only server administrators can use its buttons.
+  rankings. Only server administrators can use its buttons. This setting also accepts a
+  comma-separated list; spectator logs and supervisor features use the channel of the server
+  the session was started in.
 - Both dashboards and quiz notifications support 21 original Tarkov-inspired icons from
   `assets/dashboard_icons/` (ten dashboard icons and eleven notification icons).
   An administrator can run `/대시보드아이콘설치` once to upload only missing custom emojis and
@@ -30,7 +33,10 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   The quiz runs in an ephemeral message visible only to the person who ran the command.
   If several people run the command in the same channel at once, each only sees their own screen — no one sees anyone else's progress.
   Setting a channel ID in `.env`'s `QUIZ_CHANNEL_ID` restricts quiz starts to **that channel only**
-  (attempts in other channels get redirected there; `0` or unset allows all channels).
+  (attempts in other channels are redirected to the channel configured for that server; `0` or unset
+  allows all channels). For several servers, write `QUIZ_CHANNEL_ID=111..., 222...`.
+  Use one channel per server: a dashboard's location is stored once per (server, kind), so any extra
+  channel in the same server is skipped with a warning in the log.
 - 20-second time limit per question (adjustable via `config.py`'s `QUESTION_TIME_LIMIT`). Timing out counts as wrong and auto-advances to the next question.
 - **The question's difficulty/points, whether the answer was right or wrong, and the correct answer/explanation are never shown to the player.**
   Submitting an answer only shows "Submitted" (or a timeout notice on timeout), and no running score is shown during play.
@@ -90,6 +96,8 @@ Messages aren't re-sent per question in order to avoid spamming the channel and 
 limits when many people are playing at once.
 Set a channel ID in `.env`'s `ADMIN_LOG_CHANNEL_ID` to enable this
 (configure the channel's permissions so only admins can see it).
+For several servers, list one channel per server, separated by commas. In a server with no
+configured channel the quiz still runs normally — only the spectator log is skipped.
 
 ## Setup
 

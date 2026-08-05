@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import discord
+
+import guild_channels
 
 
 @dataclass(frozen=True)
@@ -17,9 +20,26 @@ class CheckResult:
 LEVEL_ICONS = {"ok": "✅", "warning": "⚠️", "error": "❌"}
 
 
-def _channel_check(bot, guild, channel_id: int, *, supervisor: bool) -> CheckResult:
+def _missing_bot_permissions(channel, bot_member) -> list[str]:
+    permissions = channel.permissions_for(bot_member)
+    required = {
+        "채널 보기": getattr(permissions, "view_channel", False),
+        "메시지 보내기": getattr(permissions, "send_messages", False),
+        "메시지 기록 보기": getattr(permissions, "read_message_history", False),
+    }
+    return [name for name, allowed in required.items() if not allowed]
+
+
+def _channel_check(
+    guild,
+    channel_ids: Sequence[int],
+    buckets: tuple[list, list[int], list[int]],
+    *,
+    supervisor: bool,
+) -> CheckResult:
+    """이 서버에 설정된 채널만 점검한다. 다른 서버 채널은 개수만 알린다."""
     label = "감독 채널" if supervisor else "퀴즈 채널"
-    if not channel_id:
+    if not channel_ids:
         detail = (
             "미설정 — 관전 로그와 감독 대시보드가 비활성화됩니다."
             if supervisor
@@ -27,63 +47,82 @@ def _channel_check(bot, guild, channel_id: int, *, supervisor: bool) -> CheckRes
         )
         return CheckResult("warning", label, detail)
 
-    channel = bot.get_channel(channel_id)
-    if channel is None or getattr(getattr(channel, "guild", None), "id", None) != guild.id:
-        return CheckResult("error", label, f"<#{channel_id}> 채널을 현재 서버에서 찾지 못했습니다.")
-    if not hasattr(channel, "permissions_for"):
-        return CheckResult("error", label, f"<#{channel_id}>은 메시지 채널이 아닙니다.")
+    in_guild, other_guild, unreachable = buckets
+    problems = []
+    if unreachable:
+        ids = ", ".join(f"`{channel_id}`" for channel_id in unreachable)
+        problems.append(f"봇이 접근할 수 없는 채널 ID: {ids}")
 
     bot_member = getattr(guild, "me", None)
-    if bot_member is None:
+    if in_guild and bot_member is None:
         return CheckResult("error", label, "서버의 봇 멤버 정보를 확인하지 못했습니다.")
-    permissions = channel.permissions_for(bot_member)
-    required = {
-        "채널 보기": getattr(permissions, "view_channel", False),
-        "메시지 보내기": getattr(permissions, "send_messages", False),
-        "메시지 기록 보기": getattr(permissions, "read_message_history", False),
-    }
-    missing = [name for name, allowed in required.items() if not allowed]
-    if missing:
-        return CheckResult(
-            "error",
-            label,
-            f"<#{channel_id}> 봇 권한 부족: {', '.join(missing)}",
-        )
 
-    if supervisor:
-        default_role = getattr(guild, "default_role", None)
-        if default_role is not None:
+    public_channels = []
+    default_role = getattr(guild, "default_role", None)
+    for channel in in_guild:
+        mention = f"<#{getattr(channel, 'id', None)}>"
+        if not hasattr(channel, "permissions_for"):
+            problems.append(f"{mention}은 메시지 채널이 아닙니다.")
+            continue
+        missing = _missing_bot_permissions(channel, bot_member)
+        if missing:
+            problems.append(f"{mention} 봇 권한 부족: {', '.join(missing)}")
+            continue
+        if supervisor and default_role is not None:
             public_permissions = channel.permissions_for(default_role)
             if getattr(public_permissions, "view_channel", False):
-                return CheckResult(
-                    "warning",
-                    label,
-                    f"<#{channel_id}> 접근 가능. 다만 @everyone에게 채널이 보입니다.",
-                )
-    return CheckResult("ok", label, f"<#{channel_id}> 접근 및 필수 권한 정상")
+                public_channels.append(mention)
+
+    if problems:
+        return CheckResult("error", label, " · ".join(problems))
+
+    other_note = f" · 다른 서버 {len(other_guild)}곳" if other_guild else ""
+    if not in_guild:
+        unavailable = (
+            "관전 로그가 남지 않습니다."
+            if supervisor
+            else "이 서버에서는 퀴즈를 시작할 수 없습니다."
+        )
+        return CheckResult(
+            "warning",
+            label,
+            f"이 서버에 설정된 채널이 없어 {unavailable}"
+            f" (다른 서버 {len(other_guild)}곳에 설정됨)",
+        )
+
+    mentions = " ".join(f"<#{getattr(channel, 'id', None)}>" for channel in in_guild)
+    if public_channels:
+        return CheckResult(
+            "warning",
+            label,
+            f"{' '.join(public_channels)} 접근 가능. 다만 @everyone에게 채널이 보입니다."
+            f"{other_note}",
+        )
+    return CheckResult("ok", label, f"{mentions} 접근 및 필수 권한 정상{other_note}")
 
 
 def _dashboard_check(
     db_status: dict,
-    quiz_channel_id: int,
-    admin_channel_id: int,
+    quiz_channel_ids: Sequence[int],
+    admin_channel_ids: Sequence[int],
 ) -> CheckResult:
+    """대시보드 위치는 서버별로 저장되므로 이 서버의 설정 채널만 비교한다."""
     expected = {
-        "quiz": quiz_channel_id,
-        "supervisor": admin_channel_id,
+        "quiz": quiz_channel_ids,
+        "supervisor": admin_channel_ids,
     }
     missing = []
     mismatched = []
     dashboards = db_status["dashboards"]
     configured = 0
-    for kind, channel_id in expected.items():
-        if not channel_id:
+    for kind, channel_ids in expected.items():
+        if not channel_ids:
             continue
         configured += 1
         stored = dashboards.get(kind)
         if stored is None:
             missing.append(kind)
-        elif stored[0] != channel_id:
+        elif stored[0] not in channel_ids:
             mismatched.append(kind)
 
     if mismatched:
@@ -99,7 +138,11 @@ def _dashboard_check(
             f"DB에 메시지 위치가 없음: {', '.join(missing)} — 재시작 또는 설치 명령 필요",
         )
     if configured == 0:
-        return CheckResult("warning", "대시보드 등록", "설정된 대시보드 채널이 없습니다.")
+        return CheckResult(
+            "warning",
+            "대시보드 등록",
+            "이 서버에 설정된 대시보드 채널이 없습니다.",
+        )
     return CheckResult("ok", "대시보드 등록", f"설정된 {configured}개 위치가 DB와 일치")
 
 
@@ -109,8 +152,8 @@ def collect_operations_checks(
     guild,
     db_status: dict | None,
     db_error: bool,
-    quiz_channel_id: int,
-    admin_channel_id: int,
+    quiz_channel_ids: Sequence[int],
+    admin_channel_ids: Sequence[int],
     total_questions: int,
     pvp_pool_size: int,
     pve_pool_size: int,
@@ -171,13 +214,21 @@ def collect_operations_checks(
         else f"{pending_admin_logs:,}개 전송·갱신 처리 중"
     )
     checks.append(CheckResult(backlog_level, "관전 로그 큐", backlog_detail))
-    checks.append(_channel_check(bot, guild, quiz_channel_id, supervisor=False))
-    checks.append(_channel_check(bot, guild, admin_channel_id, supervisor=True))
+    quiz_buckets = guild_channels.split_by_guild(bot, quiz_channel_ids, guild.id)
+    admin_buckets = guild_channels.split_by_guild(bot, admin_channel_ids, guild.id)
+    checks.append(_channel_check(guild, quiz_channel_ids, quiz_buckets, supervisor=False))
+    checks.append(_channel_check(guild, admin_channel_ids, admin_buckets, supervisor=True))
 
     if db_error or db_status is None:
         checks.append(CheckResult("error", "대시보드 등록", "DB 조회 실패로 확인할 수 없습니다."))
     else:
-        checks.append(_dashboard_check(db_status, quiz_channel_id, admin_channel_id))
+        checks.append(
+            _dashboard_check(
+                db_status,
+                [getattr(channel, "id", None) for channel in quiz_buckets[0]],
+                [getattr(channel, "id", None) for channel in admin_buckets[0]],
+            )
+        )
 
     if missing_icons:
         checks.append(

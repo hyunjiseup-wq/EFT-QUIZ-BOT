@@ -45,7 +45,7 @@ def alert_text(_guild_id, _name, fallback, text):
 
 def start_kwargs(**overrides):
     values = {
-        "quiz_channel_id": 20,
+        "quiz_channel_ids": (20, 21),
         "max_active_sessions": 250,
         "build_questions": Mock(return_value=[QUESTION]),
         "build_question_embed": Mock(return_value="question-embed"),
@@ -182,6 +182,59 @@ class QuizLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result)
         build_questions.assert_not_called()
+
+    async def test_other_server_quiz_channel_is_allowed(self):
+        """다른 서버의 설정 채널에서도 퀴즈를 시작할 수 있어야 한다."""
+        interaction = make_interaction()
+        interaction.guild_id = 11
+        interaction.channel_id = 21
+
+        with patch.dict(active_sessions, {}, clear=True):
+            session = await quiz_lifecycle.start_quiz(
+                interaction, "pvp", **start_kwargs()
+            )
+
+            self.assertIsNotNone(session)
+            self.assertIs(active_sessions[(11, 1)], session)
+
+    async def test_unconfigured_channel_is_rejected_with_this_guild_channel(self):
+        interaction = make_interaction()
+        interaction.channel_id = 99
+        build_questions = Mock(return_value=[QUESTION])
+        interaction.client.get_channel = Mock(
+            side_effect=lambda channel_id: {
+                20: SimpleNamespace(guild=SimpleNamespace(id=10)),
+                21: SimpleNamespace(guild=SimpleNamespace(id=11)),
+            }.get(channel_id)
+        )
+
+        with patch.dict(active_sessions, {}, clear=True):
+            result = await quiz_lifecycle.start_quiz(
+                interaction,
+                "pvp",
+                **start_kwargs(build_questions=build_questions),
+            )
+
+        self.assertIsNone(result)
+        build_questions.assert_not_called()
+        notice = interaction.response.send_message.await_args.args[0]
+        self.assertIn("<#20>", notice)
+        self.assertNotIn("<#21>", notice)
+
+    async def test_rejection_without_channel_for_this_guild_guides_to_admin(self):
+        interaction = make_interaction()
+        interaction.guild_id = 12
+        interaction.channel_id = 99
+        interaction.client.get_channel = Mock(return_value=None)
+
+        with patch.dict(active_sessions, {}, clear=True):
+            result = await quiz_lifecycle.start_quiz(
+                interaction, "pvp", **start_kwargs()
+            )
+
+        self.assertIsNone(result)
+        notice = interaction.response.send_message.await_args.args[0]
+        self.assertIn("설정되어 있지 않아요", notice)
 
     async def test_give_up_cleans_session_even_if_admin_log_fails(self):
         session = make_session()

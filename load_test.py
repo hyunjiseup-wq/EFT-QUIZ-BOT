@@ -192,7 +192,7 @@ async def _run_session_load(capacity: int) -> float:
         pass
 
     kwargs = {
-        "quiz_channel_id": 1,
+        "quiz_channel_ids": (1,),
         "max_active_sessions": capacity,
         "build_questions": lambda _mode: [{"id": 1}],
         "build_question_embed": lambda _session: object(),
