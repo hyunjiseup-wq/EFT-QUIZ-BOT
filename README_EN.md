@@ -3,7 +3,7 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **446 questions**.
+It uses a 4-choice button UI, and `questions.json` currently holds **457 questions**.
 Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -274,6 +274,12 @@ When a game patch drops:
 Tag any newly written question with `volatile` too if its content could be affected by future patches.
 Things like boss spawn maps that only change temporarily during events are written against their
 standard/permanent placement.
+
+**Latest review:** On 2026-08-09, questions about seasons, insurance, achievements, the Hideout, and
+new weapons were rechecked against the official [Patch 1.1.0.0 notes](https://www.escapefromtarkov.com/news/id/404)
+and [official Telegram](https://t.me/s/escapefromtarkovEN). Quest objectives, ammunition performance,
+and item effects whose exact values were not published remain `volatile` and still require a separate
+check against current in-game values or up-to-date wiki tables.
 
 ## Notes
 
