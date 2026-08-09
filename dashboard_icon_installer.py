@@ -4,6 +4,7 @@ from collections.abc import Callable
 import discord
 
 import config
+import guild_channels
 from quiz_icons import (
     QUIZ_EMOJI_ASSETS,
     QUIZ_ICON_DIR,
@@ -22,25 +23,25 @@ async def refresh_configured_dashboards(
     upsert_supervisor_dashboard: Callable,
     logger: logging.Logger,
 ) -> tuple[list[str], list[str]]:
-    """아이콘 등록 후 같은 서버의 설정된 대시보드 메시지를 갱신한다."""
+    """아이콘 등록 후 같은 서버의 설정된 대시보드 메시지를 갱신한다.
+
+    설정 채널은 여러 서버에 걸쳐 있으므로 아이콘을 등록한 서버의 채널만 고른다.
+    """
     refreshed = []
     failed = []
     targets = (
-        ("퀴즈", config.QUIZ_CHANNEL_ID, upsert_dashboard),
-        ("감독", config.ADMIN_LOG_CHANNEL_ID, upsert_supervisor_dashboard),
+        ("퀴즈", config.QUIZ_CHANNEL_IDS, upsert_dashboard),
+        ("감독", config.ADMIN_LOG_CHANNEL_IDS, upsert_supervisor_dashboard),
     )
-    for label, channel_id, updater in targets:
-        if not channel_id:
-            continue
-        channel = client.get_channel(channel_id)
+    for label, channel_ids, updater in targets:
+        channel = await guild_channels.fetch_guild_channel(
+            client,
+            channel_ids,
+            guild.id,
+            logger,
+            label=f"{label} 대시보드",
+        )
         if channel is None:
-            try:
-                channel = await client.fetch_channel(channel_id)
-            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-                logger.exception("%s 대시보드 아이콘 갱신용 채널 조회 실패", label)
-                failed.append(label)
-                continue
-        if getattr(getattr(channel, "guild", None), "id", None) != guild.id:
             continue
         try:
             await updater(channel, emojis=emojis)

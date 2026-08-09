@@ -18,6 +18,54 @@ def empty_async_iterator():
     return async_iterator()
 
 
+class SupervisorChannelGateTests(unittest.IsolatedAsyncioTestCase):
+    def make_interaction(self, channel_id: int, guild_id: int = 10):
+        return SimpleNamespace(
+            guild_id=guild_id,
+            channel_id=channel_id,
+            response=SimpleNamespace(send_message=AsyncMock()),
+        )
+
+    async def test_configured_supervisor_channel_passes(self):
+        interaction = self.make_interaction(31)
+
+        with patch.object(bot.config, "ADMIN_LOG_CHANNEL_IDS", (30, 31)):
+            rejected = await bot.reject_outside_supervisor_channel(interaction, "감독 기능")
+
+        self.assertFalse(rejected)
+        interaction.response.send_message.assert_not_awaited()
+
+    async def test_other_channel_is_pointed_at_this_guild_supervisor_channel(self):
+        interaction = self.make_interaction(99, guild_id=11)
+        channels = {
+            30: SimpleNamespace(guild=SimpleNamespace(id=10)),
+            31: SimpleNamespace(guild=SimpleNamespace(id=11)),
+        }
+
+        with (
+            patch.object(bot.config, "ADMIN_LOG_CHANNEL_IDS", (30, 31)),
+            patch.object(bot.bot, "get_channel", side_effect=channels.get, create=True),
+        ):
+            rejected = await bot.reject_outside_supervisor_channel(interaction, "감독 기능")
+
+        self.assertTrue(rejected)
+        notice = interaction.response.send_message.await_args.args[0]
+        self.assertIn("<#31>", notice)
+        self.assertNotIn("<#30>", notice)
+
+    def test_korean_particle_follows_final_consonant(self):
+        self.assertEqual(
+            "감독 기능"
+            + bot.korean_particle("감독 기능", with_final="은", without_final="는"),
+            "감독 기능은",
+        )
+        self.assertEqual(
+            "히든 상품 후보"
+            + bot.korean_particle("히든 상품 후보", with_final="은", without_final="는"),
+            "히든 상품 후보는",
+        )
+
+
 class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
     def test_operations_check_command_is_registered_once(self):
         command_names = [command.name for command in bot.bot.tree.get_commands()]
@@ -430,7 +478,7 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
     async def test_start_quiz_rejects_new_session_at_guild_limit(self):
         interaction = Mock()
         interaction.guild_id = 10
-        interaction.channel_id = bot.config.QUIZ_CHANNEL_ID
+        interaction.channel_id = next(iter(bot.config.QUIZ_CHANNEL_IDS), 20)
         interaction.user = SimpleNamespace(id=2, display_name="신규 참가자")
         interaction.response.send_message = AsyncMock()
         session = Mock(guild_id=10, mode="pvp")

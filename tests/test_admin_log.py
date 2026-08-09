@@ -61,7 +61,10 @@ class AdminLogAsyncTests(unittest.IsolatedAsyncioTestCase):
             await release_send.wait()
             return message
 
-        channel = SimpleNamespace(send=AsyncMock(side_effect=delayed_send))
+        channel = SimpleNamespace(
+            send=AsyncMock(side_effect=delayed_send),
+            guild=SimpleNamespace(id=10),
+        )
         client = SimpleNamespace(get_channel=Mock(return_value=channel))
         helpers = {
             "mode_labels": {"pvp": "PvP", "pve": "PvE"},
@@ -70,7 +73,7 @@ class AdminLogAsyncTests(unittest.IsolatedAsyncioTestCase):
             "logger": Mock(),
         }
 
-        with patch.object(admin_log.config, "ADMIN_LOG_CHANNEL_ID", 30):
+        with patch.object(admin_log.config, "ADMIN_LOG_CHANNEL_IDS", (30,)):
             await admin_log.start_admin_log(client, session, **helpers)
         await asyncio.wait_for(send_started.wait(), timeout=1)
         session.per_difficulty["general"] = [0, 1]

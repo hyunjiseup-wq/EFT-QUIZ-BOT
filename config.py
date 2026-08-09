@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -32,33 +33,43 @@ def _project_path(env_name: str, default_name: str) -> Path:
     return path.resolve()
 
 
-def _channel_id_env(name: str) -> int:
-    """Discord 채널 ID를 읽는다. 0은 미설정이며 음수와 비정수는 거부한다."""
-    raw = os.getenv(name, "0").strip()
-    try:
-        value = int(raw)
-    except ValueError:
-        print(f"[경고] {name}가 올바른 숫자가 아니어서 기능을 비활성화합니다.")
-        return 0
-    if value < 0:
-        print(f"[경고] {name}는 0 이상의 숫자여야 해서 기능을 비활성화합니다.")
-        return 0
-    return value
+def _channel_ids_env(name: str) -> tuple[int, ...]:
+    """Discord 채널 ID 목록을 읽는다.
+
+    서버마다 채널이 다르므로 쉼표(또는 공백)로 구분해 여러 개를 넣을 수 있다.
+    0과 빈 값은 미설정이고, 잘못된 항목은 그 항목만 건너뛰어 나머지 설정은 살린다.
+    """
+    channel_ids: list[int] = []
+    for token in re.split(r"[,\s]+", os.getenv(name, "").strip()):
+        if not token:
+            continue
+        try:
+            value = int(token)
+        except ValueError:
+            print(f"[경고] {name}의 '{token}'은 숫자가 아니어서 무시합니다.")
+            continue
+        if value < 0:
+            print(f"[경고] {name}의 '{token}'은 0 이상이어야 해서 무시합니다.")
+            continue
+        if value and value not in channel_ids:
+            channel_ids.append(value)
+    return tuple(channel_ids)
 
 
 # 디스코드 봇 토큰 (.env 파일에서 로드)
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
 
-# 관리자 전용 "관전 로그" 채널 ID
+# 관리자 전용 "관전 로그" 채널 ID (서버마다 하나씩, 쉼표로 구분)
 # - 응시자에게는 ephemeral(본인만 보임)로 퀴즈가 진행되므로,
 #   관리자가 모든 응시자의 진행 상황을 볼 수 있도록 이 채널에 세션당 로그 메시지 1개를 남깁니다.
+# - 관전 로그와 감독 대시보드는 세션이 열린 서버에 설정된 채널로 갑니다.
 # - 값이 비어있거나 잘못된 경우 관리자 로그 기능만 비활성화되고 봇은 정상 동작합니다.
-ADMIN_LOG_CHANNEL_ID = _channel_id_env("ADMIN_LOG_CHANNEL_ID")
+ADMIN_LOG_CHANNEL_IDS = _channel_ids_env("ADMIN_LOG_CHANNEL_ID")
 
-# 퀴즈 시작을 허용할 채널 ID
-# - 이 채널에서만 /pvp퀴즈, /pve퀴즈와 이용자 대시보드를 사용할 수 있습니다.
-# - 0(미설정)이면 모든 채널에서 시작할 수 있습니다.
-QUIZ_CHANNEL_ID = _channel_id_env("QUIZ_CHANNEL_ID")
+# 퀴즈 시작을 허용할 채널 ID (서버마다 하나씩, 쉼표로 구분)
+# - 여기 적힌 채널에서만 /pvp퀴즈, /pve퀴즈와 이용자 대시보드를 사용할 수 있습니다.
+# - 비어 있으면(미설정) 모든 서버의 모든 채널에서 시작할 수 있습니다.
+QUIZ_CHANNEL_IDS = _channel_ids_env("QUIZ_CHANNEL_ID")
 
 # 난이도별 배점
 POINTS = {

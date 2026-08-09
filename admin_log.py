@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping
 import discord
 
 import config
+import guild_channels
 from quiz_session import QuizSession
 
 _pending_admin_log_tasks: dict[asyncio.Task, int] = {}
@@ -21,19 +22,24 @@ def _forget_admin_log_task(task: asyncio.Task) -> None:
     _pending_admin_log_tasks.pop(task, None)
 
 
-async def get_admin_channel(client: discord.Client, logger: logging.Logger):
-    if not config.ADMIN_LOG_CHANNEL_ID:
+async def get_admin_channel(
+    client: discord.Client,
+    guild_id: int | None,
+    logger: logging.Logger,
+):
+    """세션이 열린 서버에 설정된 관전 로그 채널을 찾는다.
+
+    그 서버에 설정된 채널이 없으면 관전 로그만 조용히 비활성화된다.
+    """
+    if not config.ADMIN_LOG_CHANNEL_IDS:
         return None
-    channel = client.get_channel(config.ADMIN_LOG_CHANNEL_ID)
-    if channel is None:
-        try:
-            channel = await client.fetch_channel(config.ADMIN_LOG_CHANNEL_ID)
-        except discord.HTTPException:
-            logger.warning(
-                "관리자 로그 채널을 찾을 수 없습니다. ADMIN_LOG_CHANNEL_ID를 확인하세요."
-            )
-            return None
-    return channel
+    return await guild_channels.fetch_guild_channel(
+        client,
+        config.ADMIN_LOG_CHANNEL_IDS,
+        guild_id,
+        logger,
+        label="관리자 로그",
+    )
 
 
 def build_admin_embed(
@@ -181,7 +187,7 @@ async def start_admin_log(
     quiz_icon_text: Callable,
     logger: logging.Logger,
 ):
-    channel = await get_admin_channel(client, logger)
+    channel = await get_admin_channel(client, session.guild_id, logger)
     if channel is None:
         return
     session.admin_log_channel = channel

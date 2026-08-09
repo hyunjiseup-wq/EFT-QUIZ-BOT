@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import discord
@@ -9,6 +10,7 @@ import config
 import dashboard_icon_installer
 import dashboard_installation
 import database
+import guild_channels
 import interaction_access
 import operations_check
 import quiz_completion
@@ -302,6 +304,47 @@ async def require_guild_admin(
     )
 
 
+def korean_particle(word: str, *, with_final: str, without_final: str) -> str:
+    """받침 유무에 따라 조사를 고른다. (예: 기능+은, 후보+는)"""
+    last = word.strip()[-1:]
+    if "가" <= last <= "힣":
+        return with_final if (ord(last) - 0xAC00) % 28 else without_final
+    return with_final
+
+
+async def reject_outside_supervisor_channel(
+    interaction: discord.Interaction,
+    feature_label: str,
+) -> bool:
+    """감독 채널 밖 요청이면 안내를 보내고 True를 반환한다.
+
+    감독 채널은 서버마다 다르므로 안내에는 이 서버의 채널만 언급한다.
+    """
+    if (
+        not config.ADMIN_LOG_CHANNEL_IDS
+        or interaction.channel_id in config.ADMIN_LOG_CHANNEL_IDS
+    ):
+        return False
+
+    supervisor_channel_id = guild_channels.guild_channel_id(
+        bot,
+        config.ADMIN_LOG_CHANNEL_IDS,
+        interaction.guild_id,
+    )
+    topic = feature_label + korean_particle(feature_label, with_final="은", without_final="는")
+    target = feature_label + korean_particle(feature_label, with_final="을", without_final="를")
+    notice = (
+        f"{topic} <#{supervisor_channel_id}> 채널에서만 사용할 수 있어요."
+        if supervisor_channel_id
+        else f"이 서버에는 감독 채널이 설정되어 있지 않아 {target} 사용할 수 없어요."
+    )
+    await interaction.response.send_message(
+        quiz_alert_text(interaction.guild_id, "tq_notice_quiz", "🎯", notice),
+        ephemeral=True,
+    )
+    return True
+
+
 class QuizDashboardView(discord.ui.View):
     """재시작 후에도 작동하는 공개 퀴즈 진입점."""
 
@@ -412,19 +455,7 @@ class SupervisorDashboardView(discord.ui.View):
             "감독 대시보드는 서버 관리자만 사용할 수 있어요.",
         ):
             return False
-        if (
-            config.ADMIN_LOG_CHANNEL_ID
-            and interaction.channel_id != config.ADMIN_LOG_CHANNEL_ID
-        ):
-            await interaction.response.send_message(
-                quiz_alert_text(
-                    interaction.guild_id,
-                    "tq_notice_quiz",
-                    "🎯",
-                    f"감독 기능은 <#{config.ADMIN_LOG_CHANNEL_ID}> 채널에서만 사용할 수 있어요.",
-                ),
-                ephemeral=True,
-            )
+        if await reject_outside_supervisor_channel(interaction, "감독 기능"):
             return False
         return True
 
@@ -741,6 +772,8 @@ async def finalize_admin_log(session: QuizSession, aborted: bool, reason: str = 
 @bot.event
 async def on_ready():
     log.info(f"{bot.user}로 로그인 완료")
+    # 재접속 시에는 채널 캐시가 새로 채워지므로 이전 조회 실패는 잊고 다시 시도한다.
+    guild_channels.forget_unresolvable_channels()
     await ensure_configured_dashboard()
     await ensure_supervisor_dashboard()
 
@@ -749,7 +782,7 @@ async def start_quiz(interaction: discord.Interaction, mode: str):
     await quiz_lifecycle.start_quiz(
         interaction,
         mode,
-        quiz_channel_id=config.QUIZ_CHANNEL_ID,
+        quiz_channel_ids=config.QUIZ_CHANNEL_IDS,
         max_active_sessions=config.MAX_ACTIVE_SESSIONS_PER_GUILD,
         build_questions=build_session_questions,
         build_question_embed=build_question_embed,
@@ -957,98 +990,111 @@ async def upsert_supervisor_dashboard(
     return dashboard, False
 
 
-async def ensure_configured_dashboard():
-    """설정된 퀴즈 채널에 대시보드가 있도록 시작 시 한 번 보장한다."""
-    if not config.QUIZ_CHANNEL_ID or getattr(bot, "_dashboard_ready", False):
+async def install_configured_dashboards(
+    channel_ids,
+    *,
+    upsert: Callable,
+    label: str,
+    setting_name: str,
+    installed_attr: str,
+):
+    """설정된 채널마다 대시보드가 있도록 시작 시 한 번씩 보장한다.
+
+    설정 채널은 서버별로 하나씩이므로 채널 목록을 순회하며 각각 설치한다.
+    이미 설치를 마친 채널은 재접속 때 다시 건드리지 않는다.
+    """
+    if not channel_ids:
         return
 
-    channel = bot.get_channel(config.QUIZ_CHANNEL_ID)
-    if channel is None:
-        try:
-            channel = await bot.fetch_channel(config.QUIZ_CHANNEL_ID)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-            log.exception(
-                "QUIZ_CHANNEL_ID 채널을 불러오지 못해 대시보드를 설치하지 못했습니다. "
-                "(channel=%s)",
-                config.QUIZ_CHANNEL_ID,
+    installed: dict[int, int | None] = getattr(bot, installed_attr, None)
+    if installed is None:
+        installed = {}
+        setattr(bot, installed_attr, installed)
+    # 대시보드 위치는 (서버, 종류)당 1개만 저장되므로 같은 서버에 둘을 두면 서로 덮어쓴다.
+    installed_guilds = set(installed.values())
+
+    for channel_id in channel_ids:
+        if channel_id in installed:
+            continue
+
+        channel = await guild_channels.resolve_channel(
+            bot,
+            channel_id,
+            log,
+            label=setting_name,
+        )
+        if channel is None:
+            continue
+        if not hasattr(channel, "history") or not hasattr(channel, "send"):
+            log.error(
+                "%s에 메시지를 보낼 수 없는 채널이 있습니다. (channel=%s)",
+                setting_name,
+                channel_id,
             )
-            return
+            continue
 
-    if not hasattr(channel, "history") or not hasattr(channel, "send"):
-        log.error(
-            "QUIZ_CHANNEL_ID가 메시지를 보낼 수 없는 채널입니다. (channel=%s)",
-            config.QUIZ_CHANNEL_ID,
-        )
-        return
+        guild_id = getattr(getattr(channel, "guild", None), "id", None)
+        if guild_id in installed_guilds:
+            log.warning(
+                "%s는 서버당 하나만 설정할 수 있어 건너뜁니다. (guild=%s, channel=%s)",
+                setting_name,
+                guild_id,
+                channel_id,
+            )
+            continue
 
-    try:
-        dashboard, created = await upsert_dashboard(channel)
-    except discord.Forbidden:
-        log.exception(
-            "퀴즈 채널 권한 부족으로 대시보드를 설치하지 못했습니다. "
-            "'채널 보기', '메시지 기록 보기', '메시지 보내기' 권한을 확인하세요. "
-            "(channel=%s)",
-            config.QUIZ_CHANNEL_ID,
-        )
-        return
-    except discord.HTTPException:
-        log.exception(
-            "디스코드 요청 오류로 대시보드를 설치하지 못했습니다. (channel=%s)",
-            config.QUIZ_CHANNEL_ID,
-        )
-        return
+        guild_name = getattr(getattr(channel, "guild", None), "name", "?")
+        try:
+            dashboard, created = await upsert(channel)
+        except discord.Forbidden:
+            # 원인이 채널 권한 하나로 분명하므로 추적 정보 없이 조치 방법만 남긴다.
+            log.error(
+                "'%s' 서버의 %s 채널 권한 부족으로 대시보드를 설치하지 못했습니다. "
+                "채널 편집 → 권한에서 봇에게 '채널 보기', '메시지 기록 보기', "
+                "'메시지 보내기'(고정하려면 '메시지 관리')를 허용하세요. "
+                "(guild=%s, channel=%s)",
+                guild_name,
+                label,
+                guild_id,
+                channel_id,
+            )
+            continue
+        except discord.HTTPException:
+            log.exception(
+                "디스코드 요청 오류로 %s 대시보드를 설치하지 못했습니다. "
+                "(guild=%s, channel=%s)",
+                label,
+                guild_id,
+                channel_id,
+            )
+            continue
 
-    bot._dashboard_ready = True
-    action = "자동 설치" if created else "자동 갱신"
-    log.info("퀴즈 대시보드 %s 완료: %s", action, dashboard.jump_url)
+        installed[channel_id] = guild_id
+        installed_guilds.add(guild_id)
+        action = "자동 설치" if created else "자동 갱신"
+        log.info("%s 대시보드 %s 완료: %s", label, action, dashboard.jump_url)
+
+
+async def ensure_configured_dashboard():
+    """설정된 모든 퀴즈 채널에 대시보드를 보장한다."""
+    await install_configured_dashboards(
+        config.QUIZ_CHANNEL_IDS,
+        upsert=upsert_dashboard,
+        label="퀴즈",
+        setting_name="QUIZ_CHANNEL_ID",
+        installed_attr="_installed_quiz_dashboards",
+    )
 
 
 async def ensure_supervisor_dashboard():
-    """설정된 관리자 로그 채널에 감독 대시보드가 있도록 보장한다."""
-    if not config.ADMIN_LOG_CHANNEL_ID or getattr(
-        bot, "_supervisor_dashboard_ready", False
-    ):
-        return
-
-    channel = bot.get_channel(config.ADMIN_LOG_CHANNEL_ID)
-    if channel is None:
-        try:
-            channel = await bot.fetch_channel(config.ADMIN_LOG_CHANNEL_ID)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-            log.exception(
-                "ADMIN_LOG_CHANNEL_ID 채널을 불러오지 못해 감독 대시보드를 "
-                "설치하지 못했습니다. (channel=%s)",
-                config.ADMIN_LOG_CHANNEL_ID,
-            )
-            return
-
-    if not hasattr(channel, "history") or not hasattr(channel, "send"):
-        log.error(
-            "ADMIN_LOG_CHANNEL_ID가 메시지를 보낼 수 없는 채널입니다. (channel=%s)",
-            config.ADMIN_LOG_CHANNEL_ID,
-        )
-        return
-
-    try:
-        dashboard, created = await upsert_supervisor_dashboard(channel)
-    except discord.Forbidden:
-        log.exception(
-            "감독 채널 권한 부족으로 대시보드를 설치하지 못했습니다. "
-            "'채널 보기', '메시지 기록 보기', '메시지 보내기' 권한을 확인하세요. "
-            "(channel=%s)",
-            config.ADMIN_LOG_CHANNEL_ID,
-        )
-        return
-    except discord.HTTPException:
-        log.exception(
-            "디스코드 요청 오류로 감독 대시보드를 설치하지 못했습니다. (channel=%s)",
-            config.ADMIN_LOG_CHANNEL_ID,
-        )
-        return
-
-    bot._supervisor_dashboard_ready = True
-    action = "자동 설치" if created else "자동 갱신"
-    log.info("감독 대시보드 %s 완료: %s", action, dashboard.jump_url)
+    """설정된 모든 감독 채널에 감독 대시보드를 보장한다."""
+    await install_configured_dashboards(
+        config.ADMIN_LOG_CHANNEL_IDS,
+        upsert=upsert_supervisor_dashboard,
+        label="감독",
+        setting_name="ADMIN_LOG_CHANNEL_ID",
+        installed_attr="_installed_supervisor_dashboards",
+    )
 
 
 async def refresh_configured_dashboards(
@@ -1093,8 +1139,8 @@ async def operations_check_cmd(interaction: discord.Interaction):
         guild=guild,
         db_status=db_status,
         db_error=db_error,
-        quiz_channel_id=config.QUIZ_CHANNEL_ID,
-        admin_channel_id=config.ADMIN_LOG_CHANNEL_ID,
+        quiz_channel_ids=config.QUIZ_CHANNEL_IDS,
+        admin_channel_ids=config.ADMIN_LOG_CHANNEL_IDS,
         total_questions=len(ALL_QUESTIONS),
         pvp_pool_size=sum(len(pool) for pool in QUESTIONS_BY_MODE["pvp"].values()),
         pve_pool_size=sum(len(pool) for pool in QUESTIONS_BY_MODE["pve"].values()),
@@ -1209,20 +1255,7 @@ async def hidden_reward_candidates_cmd(
     if not await require_guild_admin(interaction):
         return
 
-    if (
-        config.ADMIN_LOG_CHANNEL_ID
-        and interaction.channel_id != config.ADMIN_LOG_CHANNEL_ID
-    ):
-        await interaction.response.send_message(
-            quiz_alert_text(
-                interaction.guild_id,
-                "tq_notice_quiz",
-                "🎯",
-                f"히든 상품 후보는 관리자 검토 채널 "
-                f"<#{config.ADMIN_LOG_CHANNEL_ID}>에서 확인해주세요.",
-            ),
-            ephemeral=True,
-        )
+    if await reject_outside_supervisor_channel(interaction, "히든 상품 후보"):
         return
 
     await show_hidden_reward_candidates(interaction, 기간일)
