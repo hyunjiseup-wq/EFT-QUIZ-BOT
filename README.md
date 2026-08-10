@@ -133,6 +133,7 @@ tarkov_quiz_bot/
 ├── quiz_reports.py            # 랭킹·통계·히든 상품 임베드 표시
 ├── question_bank.py           # 문제 로딩, 형식 검증, 난이도별 추출
 ├── config.py                  # 토큰/채널ID/배점/절대경로 설정
+├── guild_channels.py          # 여러 서버의 퀴즈·감독 채널 탐색 및 캐시
 ├── database.py                # SQLite 리더보드
 ├── questions.json             # 문제 풀 데이터
 ├── check_questions.py         # 문제 통계 + 패치 변동형 점검 CLI
@@ -149,6 +150,7 @@ tarkov_quiz_bot/
 │   ├── test_quiz_completion.py # 완료·저장 실패·세션 정리 테스트
 │   ├── test_quiz_lifecycle.py # 시작·포기·동시 세션 회귀 테스트
 │   ├── test_database.py       # DB 마이그레이션·랭킹·후보 통계 테스트
+│   ├── test_guild_channels.py # 다중 서버 채널 설정·조회·격리 테스트
 │   ├── test_project_config.py # 의존성 일치·CI 중복 실행 방지 테스트
 │   ├── test_quiz_presenters.py # 퀴즈 화면·정보 비공개 표시 테스트
 │   ├── test_quiz_scoring.py   # 정답·오답·시간 초과 채점 테스트

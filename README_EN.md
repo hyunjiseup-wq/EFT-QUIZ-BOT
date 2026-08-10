@@ -137,6 +137,7 @@ tarkov_quiz_bot/
 ├── quiz_reports.py            # Ranking, statistics, and hidden-reward embeds
 ├── question_bank.py           # Question loading, format validation, per-difficulty draw
 ├── config.py                  # Token/channel ID/points/absolute path settings
+├── guild_channels.py          # Multi-server quiz/supervisor channel lookup and caching
 ├── database.py                # SQLite leaderboard
 ├── questions.json             # Question pool data
 ├── check_questions.py         # Question stats + patch-volatility check CLI
@@ -153,6 +154,7 @@ tarkov_quiz_bot/
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_quiz_lifecycle.py # Start, give-up, and concurrent-session tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
+│   ├── test_guild_channels.py # Multi-server channel config, lookup, and isolation tests
 │   ├── test_project_config.py # Dependency consistency and duplicate-CI prevention
 │   ├── test_quiz_presenters.py # Quiz presentation and information-hiding tests
 │   ├── test_quiz_scoring.py   # Correct, wrong, and timed-out scoring tests
