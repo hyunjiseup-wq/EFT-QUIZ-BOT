@@ -3,7 +3,7 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **457 questions**.
+It uses a 4-choice button UI, and `questions.json` currently holds **458 questions**.
 Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.

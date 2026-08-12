@@ -27,6 +27,20 @@ def make_question(qid: int, difficulty: str = "general") -> dict:
 
 
 class QuestionBankTests(unittest.TestCase):
+    def test_revalidated_questions_keep_current_answer_and_bounded_scope(self):
+        questions_path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {question["id"]: question for question in load_questions(questions_path)}
+
+        painkiller = questions[413]
+        self.assertEqual(painkiller["choices"][painkiller["answer"]], "골든 스타 밤")
+
+        terminal = questions[442]
+        self.assertIn("제시된 네 맵 중", terminal["explanation"])
+
+        smallest_map = questions[446]
+        self.assertTrue(smallest_map["question"].startswith("다음 네 맵 중"))
+        self.assertEqual(smallest_map["choices"][smallest_map["answer"]], "팩토리")
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
