@@ -10,6 +10,58 @@ and even if questions leak into the community, their usefulness is limited.
 
 The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you can't set them higher than the size of each difficulty pool).
 
+## Current operating configuration
+
+| Item | Current value |
+|---|---|
+| Question bank | 458 total — 448 common · 8 PvP-only · 2 PvE-only |
+| Playable pools | PvP 456 (`common+pvp`) · PvE 450 (`common+pve`) |
+| Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
+| Maximum score | 1,380 points |
+| Question timer | 20 seconds per question |
+| Concurrency guard | 250 active sessions per server by default |
+| Discord UI | One player dashboard · one supervisor dashboard · 21 custom icons |
+| Slash commands | 8 player commands · 6 administrator commands = 14 total |
+| Storage | Per-server, per-mode SQLite aggregates plus completion history, using WAL |
+
+PvP and PvE are **question-pool tags**, not a claim that every game mechanic differs between the
+two modes. The eight PvP-only questions cover facts that only apply on the PvP side, including Kord
+Breach seasonal rules. The two PvE-only questions cover facts whose answers differ in PvE Zone.
+Mechanics shared by permanent PvP profiles and PvE, such as insurance, stay in `common`.
+
+## Commands
+
+### All server members
+
+| Command | Visibility | Function |
+|---|---|---|
+| `/pvp퀴즈` | Private | Start 30 questions from common + PvP-only pools |
+| `/pve퀴즈` | Private | Start 30 questions from common + PvE-only pools |
+| `/타르코프퀴즈포기` | Private | End the active session without saving it |
+| `/pvp퀴즈랭킹` | Public | Server PvP TOP 10 |
+| `/pve퀴즈랭킹` | Public | Server PvE TOP 10 |
+| `/퀴즈참가현황` | Public | Unique server participants and cumulative completions by mode |
+| `/pvp퀴즈기록` | Private | Your PvP best, latest, and cumulative record |
+| `/pve퀴즈기록` | Private | Your PvE best, latest, and cumulative record |
+
+Every server member can view rankings and participation totals. Only personal records and active
+quiz screens are ephemeral.
+
+### Server administrators
+
+| Command | Function |
+|---|---|
+| `/퀴즈대시보드설치` | Install or refresh the player dashboard in the current channel |
+| `/감독대시보드설치` | Install or refresh the supervisor dashboard in the current channel |
+| `/대시보드아이콘설치` | Upload only missing custom icons and refresh both configured dashboards |
+| `/퀴즈봇상태점검` | Read-only DB, pool, session, channel, dashboard, and icon health check |
+| `/히든상품후보 [기간일]` | Review completion, activity, growth, underdog, and dual-mode candidates in the supervisor channel |
+| `/타르코프퀴즈랭킹초기화` | Delete this server's rankings and all attempts after confirmation |
+
+Administrator commands use both Discord default permissions and a runtime administrator check.
+Hidden-reward candidates are review material, not automatic winners, and `/히든상품후보` only runs
+in the configured supervisor channel.
+
 ## How it works
 
 - The public **player dashboard** provides **Start PvP · Start PvE · Tutorial · mode ranking · personal record** buttons.
@@ -28,9 +80,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   An administrator can run `/대시보드아이콘설치` once to upload only missing custom emojis and
   immediately refresh the configured player and supervisor dashboards. Existing emojis with the
   reserved names are reused, never deleted or overwritten; default Unicode emoji remain as fallback.
-- `/pvp퀴즈`: Starts a quiz using common questions plus PvP-only questions.
-- `/pve퀴즈`: Starts a quiz using common questions plus PvE-only questions.
-  The quiz runs in an ephemeral message visible only to the person who ran the command.
+- The quiz runs in an ephemeral message visible only to the person who ran the command.
   If several people run the command in the same channel at once, each only sees their own screen — no one sees anyone else's progress.
   Setting a channel ID in `.env`'s `QUIZ_CHANNEL_ID` restricts quiz starts to **that channel only**
   (attempts in other channels are redirected to the channel configured for that server; `0` or unset
@@ -42,24 +92,8 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
   Submitting an answer only shows "Submitted" (or a timeout notice on timeout), and no running score is shown during play.
   Correct/incorrect history and per-difficulty breakdowns are only visible in the admin spectator log.
 - When all questions are answered, the final score and correct-answer count are shown, and the record is saved.
-- `/타르코프퀴즈포기` (give-up): Abandons the quiz in progress (not saved). Use this to quit partway through and start over.
-- `/pvp퀴즈랭킹`, `/pve퀴즈랭킹`: Mode-specific server TOP 10 (by best score, public message)
-- `/퀴즈참가현황` (participation-stats): Public unique participant count and cumulative
-  PvP/PvE completions for the server.
-- `/pvp퀴즈기록`, `/pve퀴즈기록`: Check your own mode-specific best/most recent score (ephemeral)
-- `/타르코프퀴즈랭킹초기화` (reset-ranking): **Server admin only.** Deletes all records and rankings for the server (behind a confirmation button, cannot be undone).
-  Regular users don't see this command at all.
-- `/퀴즈대시보드설치` (install-dashboard): **Server admin only.** Installs or refreshes the public dashboard in the current channel.
-- `/감독대시보드설치` (install-supervisor-dashboard): **Server admin only.** Installs or refreshes the supervisor dashboard in the current channel.
-- `/대시보드아이콘설치` (install-dashboard-icons): **Server admin only.** Uploads any missing
-  dashboard icons as server custom emojis and applies them to both dashboards.
-- `/퀴즈봇상태점검` (operations-check): **Server admin only.** Performs a read-only check of
-  database integrity/schema, question pools, active sessions, the server's pending spectator-log work,
-  quiz/supervisor channel permissions and visibility, dashboard registration, and custom icons.
-  Only the invoking admin sees it.
-- `/히든상품후보 [기간일]` (hidden-reward-candidates): **Server admin only.** Shows candidates
-  for most completions, active days, improvement, underdog, and dual-mode participation in the
-  admin review channel (30 days by default, up to 365).
+- Rankings use best score. Their correct-answer figure is the cumulative total from every completed
+  attempt, not the correct count from the best-scoring session alone.
 
 Rankings and personal records are isolated by Discord server and PvP/PvE mode. Records created before
 mode separation are preserved under `mode=legacy` and do not appear in the new mode rankings.
@@ -277,11 +311,13 @@ Tag any newly written question with `volatile` too if its content could be affec
 Things like boss spawn maps that only change temporarily during events are written against their
 standard/permanent placement.
 
-**Latest review:** On 2026-08-09, questions about seasons, insurance, achievements, the Hideout, and
-new weapons were rechecked against the official [Patch 1.1.0.0 notes](https://www.escapefromtarkov.com/news/id/404)
-and [official Telegram](https://t.me/s/escapefromtarkovEN). Quest objectives, ammunition performance,
-and item effects whose exact values were not published remain `volatile` and still require a separate
-check against current in-game values or up-to-date wiki tables.
+**Latest review:** On 2026-08-12, generated questions Q376–Q458 (83 questions) were rechecked against
+the official [Patch 1.1.0 release notes](https://telegra.ph/Patch-1100-08-03),
+[official Telegram](https://t.me/s/escapefromtarkovEN), and current official wiki tables.
+The Golden Star painkiller duration (Q413) and map-capacity comparison scopes (Q442 and Q446) were
+corrected, while review notes for Hideout values, maps, and current bug behavior were refreshed.
+Of the 458 questions, 183 are currently `volatile`. FAMAS G2 (Q458) was shown as work-in-progress on
+TarkovTV and still requires confirmation of its release and specifications in a final patch note.
 
 ## Notes
 
