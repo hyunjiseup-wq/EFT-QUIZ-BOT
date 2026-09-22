@@ -63,6 +63,25 @@ class ProjectConfigTests(unittest.TestCase):
             f"{mode_counts['pve']} PvE-only",
             readme_en,
         )
+        for mode in ("pvp", "pve"):
+            playable = mode_counts["common"] + mode_counts[mode]
+            label = "PvP" if mode == "pvp" else "PvE"
+            self.assertIn(f"{label} {playable}문제", readme)
+            self.assertIn(f"{label} {playable} (`common+{mode}`)", readme_en)
+
+    def test_readmes_report_review_coverage_without_claiming_full_verification(self):
+        questions = json.loads((ROOT / "questions.json").read_text(encoding="utf-8"))
+        volatile = sum(bool(q.get("volatile")) for q in questions)
+        reviewed = sum(bool(q.get("reviewed_at") and q.get("sources")) for q in questions)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme_en = (ROOT / "README_EN.md").read_text(encoding="utf-8")
+        self.assertIn(f"**{volatile}문제가 `volatile`**", readme)
+        self.assertIn(f"**근거·검토일 기록은 {reviewed}문항**", readme)
+        self.assertIn(f"**{volatile} are `volatile`**", readme_en)
+        self.assertIn(f"**{reviewed} questions have source/date records**", readme_en)
+        for contents in (readme, readme_en):
+            for link in re.findall(r"\]\((docs/[^)]+)\)", contents):
+                self.assertTrue((ROOT / link).is_file(), f"문서 링크 누락: {link}")
 
     def test_readmes_list_every_registered_slash_command(self):
         bot_source = (ROOT / "bot.py").read_text(encoding="utf-8")

@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import random
 from collections.abc import Mapping, Sequence
+from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 CATEGORIES = (
     "스토리",
@@ -149,6 +151,40 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
 
         if question.get("volatile") and not isinstance(question.get("volatile_note"), str):
             errors.append(f"{label}: volatile 문제에는 volatile_note가 필요함")
+
+        # 선택적 근거 기록. 형식 검증일 뿐, 링크 내용의 사실성/최신성을 보증하지 않는다.
+        if "reviewed_at" in question or "sources" in question:
+            reviewed_at = question.get("reviewed_at")
+            try:
+                valid_date = (
+                    isinstance(reviewed_at, str)
+                    and date.fromisoformat(reviewed_at).isoformat() == reviewed_at
+                )
+            except ValueError:
+                valid_date = False
+            if not valid_date:
+                errors.append(f"{label}: reviewed_at은 YYYY-MM-DD 날짜여야 함")
+
+            sources = question.get("sources")
+            valid_sources = isinstance(sources, list) and bool(sources)
+            if valid_sources:
+                for source in sources:
+                    if not isinstance(source, str) or any(c.isspace() for c in source):
+                        valid_sources = False
+                        break
+                    try:
+                        parsed = urlsplit(source)
+                        if (
+                            parsed.scheme != "https"
+                            or not parsed.hostname
+                            or parsed.username is not None
+                            or parsed.password is not None
+                        ):
+                            valid_sources = False
+                    except ValueError:
+                        valid_sources = False
+            if not valid_sources:
+                errors.append(f"{label}: sources는 비어 있지 않은 HTTPS URL 배열이어야 함")
 
     for difficulty, required_count in session_counts.items():
         available = difficulty_counts[difficulty]

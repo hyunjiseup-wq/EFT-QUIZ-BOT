@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from config import SESSION_COUNTS
 from question_bank import (
     QuestionDataError,
     filter_questions_for_mode,
@@ -27,6 +28,85 @@ def make_question(qid: int, difficulty: str = "general") -> dict:
 
 
 class QuestionBankTests(unittest.TestCase):
+    def test_real_bank_600_sessions_keep_difficulty_counts_unique_ids_and_mode_isolation(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        self.assertEqual(validate_questions(questions, SESSION_COUNTS), [])
+        rng = random.Random(20260922)
+        total = sum(SESSION_COUNTS.values())
+        for mode in ("pvp", "pve"):
+            pool = group_by_difficulty(filter_questions_for_mode(questions, mode))
+            for draw in range(300):
+                with self.subTest(mode=mode, draw=draw):
+                    selected = select_session_questions(pool, SESSION_COUNTS, rng=rng)
+                    self.assertEqual(len(selected), total)
+                    self.assertEqual(len({q["id"] for q in selected}), total)
+                    self.assertTrue(
+                        all(q.get("mode", "common") in {"common", mode} for q in selected)
+                    )
+                    for difficulty, count in SESSION_COUNTS.items():
+                        self.assertEqual(
+                            sum(q["difficulty"] == difficulty for q in selected), count
+                        )
+
+    def test_review_metadata_is_optional_but_requires_date_and_https_sources_together(self):
+        question = make_question(1)
+        self.assertEqual(validate_questions([question], {"general": 1}), [])
+        reviewed = {
+            **question,
+            "reviewed_at": "2026-09-22",
+            "sources": ["https://telegra.ph/Patch-1151-09-15-2"],
+        }
+        self.assertEqual(validate_questions([reviewed], {"general": 1}), [])
+        for field in ("reviewed_at", "sources"):
+            with self.subTest(missing=field):
+                incomplete = {key: value for key, value in reviewed.items() if key != field}
+                self.assertTrue(validate_questions([incomplete], {"general": 1}))
+
+    def test_review_metadata_rejects_invalid_dates_and_sources(self):
+        reviewed = {
+            **make_question(1),
+            "reviewed_at": "2026-09-22",
+            "sources": ["https://telegra.ph/Patch-1151-09-15-2"],
+        }
+        for value in (None, True, 20260922, "2026-02-30", "22/09/2026", "20260922"):
+            with self.subTest(date=value):
+                errors = validate_questions([{**reviewed, "reviewed_at": value}], {"general": 1})
+                self.assertTrue(any("reviewed_at" in error for error in errors))
+        for value in (
+            None, [], "https://example.com", [42], [""], ["http://example.com"],
+            ["https:///missing-host"], ["https://[bad"], ["https://user:secret@example.com"],
+            ["https://example.com/with space"],
+        ):
+            with self.subTest(sources=value):
+                errors = validate_questions([{**reviewed, "sources": value}], {"general": 1})
+                self.assertTrue(any("sources" in error for error in errors))
+
+    def test_september_patch_questions_keep_corrected_scope_and_provenance(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        # 회귀 검사는 원전의 사실성을 증명하지 않는다. 검토한 수정 범위만 고정한다.
+        expected_answer_fragments = {
+            44: "사격", 80: "대상 캐릭터", 138: "로그", 164: "볼트액션",
+            211: "두 진영", 242: "가까이", 244: "거치 화기와 지뢰 제거",
+            273: "12.7x108mm", 339: "타길라의 그림자", 403: "경향",
+            406: "플레이트 캐리어", 450: "보상 해금", 457: "Arena에서",
+            459: "시즌 캐릭터", 460: "집계에서는 제외", 461: "25명·15명·10명",
+            462: "수리 키트", 463: "Fence·Ref", 464: "방어 성능 제거",
+        }
+        for qid, fragment in expected_answer_fragments.items():
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertIn(fragment, question["choices"][question["answer"]])
+                self.assertEqual(question["reviewed_at"], "2026-09-22")
+                self.assertTrue(question["sources"])
+        self.assertIn("Power Station", questions[130]["question"])
+        self.assertIn("전술 의상", questions[457]["explanation"])
+        self.assertIn("장비 상자 교환에는 사용할 수 없습니다", questions[450]["explanation"])
+        self.assertNotIn("10~15%", questions[403]["choices"][0])
+        pve_ids = {q["id"] for q in filter_questions_for_mode(list(questions.values()), "pve")}
+        self.assertTrue({459, 460, 461}.isdisjoint(pve_ids))
+        self.assertTrue({462, 463, 464}.issubset(pve_ids))
+
     def test_revalidated_questions_keep_current_answer_and_bounded_scope(self):
         questions_path = Path(__file__).resolve().parents[1] / "questions.json"
         questions = {question["id"]: question for question in load_questions(questions_path)}

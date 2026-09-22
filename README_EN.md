@@ -3,7 +3,7 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **458 questions**.
+It uses a 4-choice button UI, and `questions.json` currently holds **464 questions**.
 Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -14,8 +14,8 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 | Item | Current value |
 |---|---|
-| Question bank | 458 total — 448 common · 8 PvP-only · 2 PvE-only |
-| Playable pools | PvP 456 (`common+pvp`) · PvE 450 (`common+pve`) |
+| Question bank | 464 total — 451 common · 11 PvP-only · 2 PvE-only |
+| Playable pools | PvP 462 (`common+pvp`) · PvE 453 (`common+pve`) |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -25,7 +25,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 | Storage | Per-server, per-mode SQLite aggregates plus completion history, using WAL |
 
 PvP and PvE are **question-pool tags**, not a claim that every game mechanic differs between the
-two modes. The eight PvP-only questions cover facts that only apply on the PvP side, including Kord
+two modes. The eleven PvP-only questions cover facts that only apply on the PvP side, including Kord
 Breach seasonal rules. The two PvE-only questions cover facts whose answers differ in PvE Zone.
 Mechanics shared by permanent PvP profiles and PvE, such as insurance, stay in `common`.
 
@@ -62,14 +62,19 @@ Administrator commands use both Discord default permissions and a runtime admini
 Hidden-reward candidates are review material, not automatic winners, and `/히든상품후보` only runs
 in the configured supervisor channel.
 
+Resetting rankings deletes **saved results only**, not active sessions. Those sessions can save new
+results on completion. Before an event reset, restrict new starts, check the supervisor dashboard
+for active sessions, and back up the production database.
+
 ## How it works
 
 - The public **player dashboard** provides **Start PvP · Start PvE · Tutorial · mode ranking · personal record** buttons.
   When `QUIZ_CHANNEL_ID` is configured, the bot automatically installs or refreshes it on startup
   (list one channel per server, separated by commas, when running across several servers).
   An administrator can also run `/퀴즈대시보드설치` in a channel; running it again updates
-  an existing pinned dashboard (or one found in the latest 100 messages) instead of posting a duplicate.
-  The bot pins an installed or refreshed dashboard automatically, and its buttons survive restarts.
+  the dashboard found via its saved message ID, then pins, then the latest 100 messages.
+  It attempts to pin the message; missing permissions or an API error can leave it installed but
+  unpinned. Its buttons survive restarts.
 - A separate **supervisor dashboard** is automatically installed in `ADMIN_LOG_CHANNEL_ID`.
   It provides participation stats, 30-day hidden-reward candidates, active sessions, and PvP/PvE
   rankings. Only server administrators can use its buttons. This setting also accepts a
@@ -122,8 +127,9 @@ Discord's ephemeral messages **cannot be seen by anyone but the player themselve
 This is a platform-level restriction; it can't be worked around from the bot's code.
 
 So instead, this bot uses a dedicated **admin-only "spectator log" channel**. When a player starts the quiz,
-**one log message per player** is created in that channel, and it's edited every time they answer a question,
-showing their answer history, live score, and per-difficulty breakdown (marked 🟢/⚪ when they finish/give up).
+**one log message per session** is created in that channel. Each answer is recorded in memory, but
+Discord edits are batched every **five questions** by default, so displayed scores and answer history
+may lag. A final update is requested on completion or withdrawal. API failures can leave logs incomplete.
 **Wrong and timed-out answers are logged together with the choice the player picked, the correct answer, and the explanation**,
 so if a player asks "why was that wrong?", an admin can answer immediately just by reading the log.
 Messages aren't re-sent per question in order to avoid spamming the channel and hitting Discord's rate
@@ -282,7 +288,9 @@ python -m py_compile admin_log.py bot.py config.py dashboard_icon_installer.py d
 ruff check .
 ```
 
-Pushes and pull requests run the same checks automatically on Python 3.10 and 3.13.
+Pushes to `main` and pull-request creation/updates trigger CI on Python 3.10 and 3.13.
+A branch push without a PR does not. CI runs each `tests/test_*.py` in a separate process.
+Passing checks verify code and data structure, not the factual accuracy of game content.
 
 For VS Code, the committed `.vscode/settings.json` selects the project's
 `.venv\\Scripts\\python.exe` and configures `unittest` discovery.
@@ -311,13 +319,18 @@ Tag any newly written question with `volatile` too if its content could be affec
 Things like boss spawn maps that only change temporarily during events are written against their
 standard/permanent placement.
 
-**Latest review:** On 2026-08-12, generated questions Q376–Q458 (83 questions) were rechecked against
-the official [Patch 1.1.0 release notes](https://telegra.ph/Patch-1100-08-03),
-[official Telegram](https://t.me/s/escapefromtarkovEN), and current official wiki tables.
-The Golden Star painkiller duration (Q413) and map-capacity comparison scopes (Q442 and Q446) were
-corrected, while review notes for Hideout values, maps, and current bug behavior were refreshed.
-Of the 458 questions, 183 are currently `volatile`. FAMAS G2 (Q458) was shown as work-in-progress on
-TarkovTV and still requires confirmation of its release and specifications in a final patch note.
+**Latest review: 2026-09-22.** Cross-checking official 1.1.0, 1.1.5.0, and 1.1.5.1 release notes and
+follow-up announcements led to 14 corrections and six additions (Q459–Q464). See the
+[review record](docs/content-review-2026-09-22.md) for evidence, scope, and outstanding checks.
+Of 464 questions, **197 are `volatile`**; **20 questions have source/date records**.
+This is not a claim that all 464 questions were verified in the latest game client.
+
+Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
+Include both when recording future reviews. `--volatile` displays them and validates their format.
+The review date is not the source publication date or an in-game measurement date. Corrections based
+on older indexed wiki content are identified separately in the review record. FAMAS G2 (Q458) remains
+a question about its announcement, not confirmation of release. Pending bug-state and numeric-value
+checks are also listed in the review record.
 
 ## Notes
 

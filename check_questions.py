@@ -77,6 +77,8 @@ def main():
 
     volatile = [q for q in questions if q.get("volatile")]
     print(f"\n패치 변동형(volatile) 문제: {len(volatile)}개")
+    reviewed = [q for q in questions if q.get("reviewed_at") and q.get("sources")]
+    print(f"근거·검토일 기록: {len(reviewed)}개 (사실성·최신성 자동 검증 아님)")
     if "--volatile" in sys.argv:
         for q in volatile:
             label = config.DIFFICULTY_LABEL.get(q["difficulty"], q["difficulty"])
@@ -84,6 +86,10 @@ def main():
             print(f"  현재 정답: {q['choices'][q['answer']]}")
             if q.get("volatile_note"):
                 print(f"  점검 메모: {q['volatile_note']}")
+            if q.get("reviewed_at"):
+                print(f"  검토일: {q['reviewed_at']}")
+                for source in q["sources"]:
+                    print(f"  근거: {source}")
 
     print("\n형식 검증 통과")
 
