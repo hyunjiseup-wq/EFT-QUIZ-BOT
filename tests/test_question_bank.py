@@ -1077,6 +1077,73 @@ class QuestionBankTests(unittest.TestCase):
                     self.assertTrue(q["volatile"])
                     self.assertIn("실측 검증은 아님", q["volatile_note"])
 
+    def test_hideout_review_distinguishes_storage_power_and_dogtag_conditions(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("연료를 소모", questions[8]["question"])
+        self.assertIn("라바토리 제작은 전력 없이", questions[8]["explanation"])
+        self.assertIn("레이드 밖", questions[24]["question"])
+        self.assertIn("모두 자동 보관", questions[24]["explanation"])
+        self.assertIn("수집을 의뢰", questions[32]["question"])
+        self.assertIn("이익은 보장되지", questions[32]["explanation"])
+        self.assertEqual(questions[142]["choices"][0], "문샤인 또는 인텔리전스 폴더")
+        self.assertIn("직접 처치한 상대 진영", questions[144]["question"])
+        self.assertIn("전투 스킬 성장", questions[144]["explanation"])
+
+    def test_armor_review_separates_carrier_class_and_original_durability(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("Class 0 표기를 제외", questions[43]["question"])
+        self.assertIn("장착한 방탄판", questions[43]["explanation"])
+        self.assertEqual(questions[43]["choices"][0], "1~6단계 클래스")
+        self.assertIn("피탄 부위", questions[69]["question"])
+        self.assertIn("원래 최대치", questions[69]["question"])
+        self.assertIn("수리로 줄어든 최대치가 아니라", questions[69]["explanation"])
+
+    def test_system_review_bounds_editions_character_level_and_product_identity(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("별도의 게임", questions[23]["explanation"])
+        self.assertNotIn("스핀오프 모드", questions[23]["question"])
+        self.assertEqual(questions[35]["choices"][0], "데스 스크린(사망 결과 화면)")
+        self.assertIn("경험치 0", questions[37]["question"])
+        self.assertIn("개별 스킬 레벨과 캐릭터 레벨", questions[37]["explanation"])
+        self.assertNotIn("사전 구매", questions[78]["choices"][0])
+        self.assertIn("판매 플랫폼", questions[78]["explanation"])
+        self.assertIn("일부 외형 아이템", questions[101]["explanation"])
+        self.assertIn("개발사", questions[120]["question"])
+        self.assertNotIn("최우선으로 하는", questions[120]["explanation"])
+
+    def test_basic_system_and_hideout_review_records_evidence_and_limits(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        reviewed = {
+            8, 9, 20, 23, 24, 32, 35, 37, 40, 43, 69, 78, 101, 103, 105,
+            111, 113, 120, 142, 143, 144, 145, 173,
+        }
+        changing = {8, 32, 35, 37, 43, 69, 78, 101, 105, 111, 142, 143, 144, 145}
+        for q in questions:
+            if q["id"] not in reviewed:
+                continue
+            with self.subTest(qid=q["id"]):
+                self.assertTrue(q["sources"])
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+                if q["id"] in changing:
+                    self.assertTrue(q["volatile"])
+                    self.assertIn("실측 검증은 아님", q["volatile_note"])
+        for q in questions:
+            if q["category"] == "하이드아웃":
+                with self.subTest(hideout_qid=q["id"]):
+                    self.assertTrue(q["sources"])
+                    self.assertTrue(q["reviewed_at"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

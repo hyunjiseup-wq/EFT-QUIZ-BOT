@@ -361,7 +361,11 @@ The remaining 15 boss/AI questions were cross-checked to distinguish regular nig
 Lighthouse guards, in-raid antidotes from other treatment, and possible loot from guaranteed drops.
 The Santa question now explicitly covers the 2025 Kolotun event. All 30 boss/AI questions have
 source records, but this is not completed live-client validation.
-Of 464 questions, **270 are `volatile`**; **369 questions have source/date records**.
+Another 23 hideout/basic-system questions were cross-checked. Hall of Fame bonus conditions,
+Class 0 carriers, original maximum armor durability, and edition/faction exceptions were clarified.
+All 29 hideout questions now have source records, not completed live-client validation. The minimap
+and kill-feed questions remain unverified because direct evidence of the current base-game UI is lacking.
+Of 464 questions, **284 are `volatile`**; **392 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
