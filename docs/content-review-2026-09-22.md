@@ -12,9 +12,11 @@
 - 3차: `6227926` 이후 19문항 대조. 16문항의 표현·조건 수정, 3문항은 내용 유지·근거 추가.
 - 4차: `1520dcd` 이후 하이드아웃 19문항 대조. 16문항의 범위·예외 수정,
   3문항은 문제·보기·해설 유지. 검토 메모의 근거 수준도 정정했다.
+- 5차: `dae3d02` 이후 스킬 31문항과 업적 1문항 대조. 18문항의 표현·조건을 수정하고
+  14문항은 문제·보기·해설 유지 후 근거·변동형 메모를 기록했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 72개(1차 20 + 2차 14 + 3차 19 + 4차 19). 그 외 392개를 확인 완료로 표시하지 않는다.
-- `volatile`: 204개(2차에서 5개, 4차에서 2개 추가). 이 표시는 **출제 제외가 아니다**.
+- 근거를 기록한 문항: 104개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32). 그 외 360개를 확인 완료로 표시하지 않는다.
+- `volatile`: 221개(2차에서 5개, 4차에서 2개, 5차에서 17개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -115,6 +117,7 @@ Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가�
   이 두 문항은 **아직 미수정·출제 가능 상태**이며 검증 완료 목록에 넣지 않았다.
 - Q410·429: 검색본의 버그 설명은 확인했지만 현재도 재현되는지는 확인하지 못했다.
   특히 Q429의 일반 레벨 효과가 ‘정상 작동’한다는 부연까지 검증된 것으로 취급하지 않는다.
+  **5차 후속 처리:** 두 문항을 과거 위키 기록 질문으로 한정하고 정상 작동 단정을 제거했다.
 - Q315: SR-25·Hybrid 46·PM II 1-8x24·PMC 10명은 검색본과 일치하지만
   1.1.0 이후의 현행 클라이언트 대조가 아니므로 최신 검증 완료로 올리지 않았다.
 - Q323: [공식 공지](https://t.me/s/escapefromtarkovEN?before=6701)는 Blackout 기간
@@ -147,6 +150,35 @@ Q380·381에는 변동 수치 재검토를 위한 `volatile`을 추가했다. Q1
 숫자가 검색본과 일치하더라도 9월 이후 게임 실측 검증 완료로 간주하지 않는다.
 이번 검수에서는 문제 수·모드·난이도·정답 인덱스·운영 코드를 변경하지 않았다.
 
+## 5차 수정 — 스킬 분류·효과·버그 기록
+
+스킬 카테고리 32문항 중 2차에서 검토한 Q424를 제외한 31문항과 업적 Q410을 대조했다.
+이번 근거도 약 2~3개월 전 위키 검색 수집본이다. 원문 직접 열기는 접근 제한이 있으며,
+공식 사이트·배포 노트 대상 검색에서도 Q410·429의 최신 버그 상태를 확정할 근거를 확보하지 못했다.
+검색 결과가 없다는 사실은 버그가 고쳐졌거나 남아 있다는 증거가 아니다.
+
+| 문항 | 판정·처리 | 근거 |
+|---|---|---|
+| Q66·422 | 무게 자체 감소와 소지 한계, 개인 보정과 기본값 구분 | [Strength](https://escapefromtarkov.fandom.com/wiki/Strength) |
+| Q161 | Metabolism에 Health의 소비율 감소 효과가 섞인 설명 수정 | [Metabolism](https://escapefromtarkov.fandom.com/wiki/Metabolism), [Health](https://escapefromtarkov.fandom.com/wiki/Health) |
+| Q202·272·293 | 미구현 목록을 현재 사용 가능·출시 확정으로 읽지 않도록 한정 | [Character skills](https://escapefromtarkov.fandom.com/wiki/Character_skills) |
+| Q331 | 삭제된 버전을 명시한 과거 변경 문항으로 구체화 | [Recoil Control](https://escapefromtarkov.fandom.com/wiki/Recoil_Control) |
+| Q378·379·431 | 추가 보정과 스킬 기본값 구분 | Character skills, [Endurance](https://escapefromtarkov.fandom.com/wiki/Endurance) |
+| Q394 | 검사 생략과 고장 해제 조작 생략 구분 | [Troubleshooting](https://escapefromtarkov.fandom.com/wiki/Troubleshooting) |
+| Q410·429 | **과거 위키의 버그 기록**을 묻도록 변경. 현재 재현·보상·일반 효과 정상 작동을 단정하지 않음 | [Achievements](https://escapefromtarkov.fandom.com/wiki/Achievements), [Intellect](https://escapefromtarkov.fandom.com/wiki/Intellect) |
+| Q430 | 제작 시간 감소에 비트코인 팜 예외 보완 | [Crafting](https://escapefromtarkov.fandom.com/wiki/Crafting) |
+| Q432 | 탄창 내 탄 삽입·제거와 총기 재장전 구분. 속도·시간 부호가 혼재한 부연 수치 삭제 | [Mag Drills](https://escapefromtarkov.fandom.com/wiki/Mag_Drills) |
+| Q433 | 레벨별 감소량과 엘리트 도달 시 누적값 구분 | [Stress Resistance](https://escapefromtarkov.fandom.com/wiki/Stress_Resistance) |
+| Q434·435 | 면역 대상과 스태미나·부상에 따른 흔들림의 범위 구체화 | [Immunity](https://escapefromtarkov.fandom.com/wiki/Immunity), [Aim Drills](https://escapefromtarkov.fandom.com/wiki/Aim_Drills) |
+| Q203~206·240·241·332·376·377 | 내용은 검색본과 일치, 근거 기록 | Character skills, [Perception](https://escapefromtarkov.fandom.com/wiki/Perception), [Weapon Maintenance](https://escapefromtarkov.fandom.com/wiki/Weapon_Maintenance) |
+| Q423·425~428 | 내용은 검색본과 일치, 근거 기록 | [Vitality](https://escapefromtarkov.fandom.com/wiki/Vitality), [Light Vests](https://escapefromtarkov.fandom.com/wiki/Light_Vests), [Heavy Vests](https://escapefromtarkov.fandom.com/wiki/Heavy_Vests), [Attention](https://escapefromtarkov.fandom.com/wiki/Attention), [Search](https://escapefromtarkov.fandom.com/wiki/Search) |
+
+Q376~379·394·422·423·425~428·430~435에 `volatile`을 추가했다.
+이번 변경 후 스킬 카테고리 32문항 모두에 근거 기록이 있지만, 최신 효과 실측 완료는 아니다.
+Q410은 PvE에서 보고된 과거 사례로서 `pve`를 유지하며 Q429는 `common`을 유지한다.
+버그 기록을 현재 게임의 정답으로 확정한 것이 아니라 문항의 시간 범위를 바꾼 것이다.
+문제 수·난이도·정답 인덱스·모드별 출제 가능 수는 바뀌지 않았다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -160,7 +192,8 @@ Q380·381에는 변동 수치 재검토를 위한 `volatile`을 추가했다. Q1
 
 ## 남은 팩트체크 — 완료로 간주하지 않는 항목
 
-1. Q410(PvE 업적 표시 버그), Q429(Intellect 미작동): 최신 버그 상태의 근거 확보 필요.
+1. Q410(PvE 업적 표시 버그), Q429(Intellect 미작동): 과거 기록 문항으로 수정했지만
+   현재 재현·수정 여부는 여전히 미확인이다. 현재 상태 문항으로 되돌리려면 새 근거가 필요하다.
 2. Q29·157의 기존 설명 오류는 2차에서 수정했다. 근거가 검색 수집본이라는 한계는 남으며,
    최신 클라이언트 실측 완료로 간주하지 않는다.
 3. Q151·163·209·225~226·269·310~324·367·369 등 해금·상인·퀘스트 조건:
@@ -186,6 +219,8 @@ Q380·381에는 변동 수치 재검토를 위한 `volatile`을 추가했다. Q1
 - 3차는 회귀 테스트 3개 추가 후 전체 141개 통과. 문제 형식 검사·Ruff·변경 테스트 컴파일 통과.
 - 4차는 회귀 테스트 3개 추가 후 전체 144개 통과. 464문항 형식 검사·Ruff·변경 테스트
   컴파일·`git diff --check` 통과. 출처 기록 72개·변동형 204개와 양쪽 README 수량 일치.
+- 5차는 회귀 테스트 3개 추가 후 전체 147개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 104개·변동형 221개와 양쪽 README 수량 일치.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
@@ -193,6 +228,7 @@ Q380·381에는 변동 수치 재검토를 위한 `volatile`을 추가했다. Q1
   3차에서도 동일한 임시 DB 부하 검사를 재실행해 통과했다.
   4차 재실행도 통과했으며 통계·후보 조회 약 0.10초, 동시 랭킹 조회 약 0.22초였다.
   이 시간은 해당 로컬 실행 결과이지 운영 응답시간 보장값이 아니다.
+  5차에서도 동일한 규모의 임시 DB·동시 조회·세션 상한 검사를 재실행해 통과했다.
 
 합성 부하는 Discord 실제 서버의 8,500명 동시 접속 검증이 아니다.
 실게임 정답 검증과 소프트웨어 검증 결과는 구분한다.

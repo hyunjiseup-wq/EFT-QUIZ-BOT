@@ -267,6 +267,63 @@ class QuestionBankTests(unittest.TestCase):
                 self.assertIn("검색 수집본", questions[qid]["volatile_note"])
                 self.assertNotIn("배포 후 현행", questions[qid]["volatile_note"])
 
+    def test_skill_questions_separate_effects_actions_and_baseline_bonuses(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        metabolism = questions[161]
+        self.assertIn("부정 효과 지속시간", metabolism["choices"][metabolism["answer"]])
+        self.assertNotIn("에너지 소모 효율", metabolism["choices"][metabolism["answer"]])
+        self.assertIn("Health", metabolism["explanation"])
+        self.assertIn("소지 무게 한계", questions[66]["question"])
+        self.assertIn("추가 중량 보정을 제외", questions[422]["question"])
+        for qid in (378, 379):
+            self.assertIn("다른 성장 보정을 제외", questions[qid]["question"])
+        self.assertIn("다른 스태미나 보정을 제외", questions[431]["question"])
+        self.assertIn("해제 조작 자체", questions[394]["explanation"])
+        self.assertIn("탄을 넣고 빼는", questions[432]["explanation"])
+        self.assertNotIn("장전·해체 속도는 각각 +30%", questions[432]["explanation"])
+        self.assertIn("비트코인 팜", questions[430]["explanation"])
+        self.assertIn("누적값", questions[433]["explanation"])
+        self.assertIn("스태미나 부족", questions[435]["question"])
+        self.assertIn("완전 면역과 구분", questions[435]["explanation"])
+
+    def test_historical_skill_and_bug_questions_do_not_claim_current_runtime_state(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        self.assertIn("미구현(Upcoming)", questions[202]["question"])
+        self.assertIn("출시를 보장하지", questions[272]["explanation"])
+        self.assertIn("목록에 이름이 있다는 사실", questions[293]["explanation"])
+        self.assertIn("0.14.5", questions[331]["question"])
+        for qid in (410, 429):
+            with self.subTest(qid=qid):
+                self.assertTrue(questions[qid]["question"].startswith("과거"))
+                self.assertIn("위키", questions[qid]["question"])
+                self.assertIn("현재 재현·수정 여부는 미확인", questions[qid]["volatile_note"])
+        self.assertNotIn("정상 작동합니다", questions[429]["explanation"])
+        self.assertNotIn("정상적으로 지급됩니다", questions[410]["explanation"])
+
+    def test_fifth_review_batch_keeps_provenance_modes_and_volatile_numeric_rules(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        qids = (
+            66, 161, 202, 203, 204, 205, 206, 240, 241, 272, 293, 331, 332,
+            376, 377, 378, 379, 394, 410, 422, 423, 425, 426, 427, 428,
+            429, 430, 431, 432, 433, 434, 435,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(
+                    questions[qid].get("mode", "common"), "pve" if qid == 410 else "common"
+                )
+                if qid not in (66, 161):
+                    self.assertTrue(questions[qid]["volatile"])
+        # 스킬 분류의 모든 문항에 검토 기록이 있지만 최신 게임 실측 보장은 아니다.
+        self.assertTrue(
+            all(q.get("sources") for q in questions.values() if q["category"] == "스킬")
+        )
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
