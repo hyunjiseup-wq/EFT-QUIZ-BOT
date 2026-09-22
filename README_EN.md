@@ -324,9 +324,12 @@ follow-up announcements led to 14 corrections and six additions (Q459–Q464). A
 against indexed wiki content corrected ambiguous choices, missing exceptions, and overbroad claims
 in another 14 questions. A third review covered 19 trader, quest, and seasonal questions:
 16 received wording or condition corrections and three retained their content with source records added.
+A fourth review covered 19 Hideout questions and clarified the scope or exceptions in 16 of them,
+including crafting power requirements and ambiguous answers. Review notes that implied current-game
+verification were corrected to disclose their indexed-wiki basis.
 See the
 [review record](docs/content-review-2026-09-22.md) for evidence, scope, and outstanding checks.
-Of 464 questions, **202 are `volatile`**; **53 questions have source/date records**.
+Of 464 questions, **204 are `volatile`**; **72 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

@@ -215,6 +215,58 @@ class QuestionBankTests(unittest.TestCase):
                 expected_mode = "pvp" if qid in {364, 365, 366, 375} else "common"
                 self.assertEqual(question.get("mode", "common"), expected_mode)
 
+    def test_hideout_questions_disambiguate_facilities_and_bonus_scope(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        # 검토한 문구·예외가 사라지지 않는지 검사할 뿐 웹 내용의 사실성 검사는 아니다.
+        self.assertIn("프로필", questions[7]["explanation"])
+        self.assertIn("의료품 제작", questions[47]["question"])
+        self.assertIn("휴식 공간에도", questions[47]["explanation"])
+        self.assertIn("화폐 보상", questions[67]["choices"][questions[67]["answer"]])
+        self.assertIn("Physical", questions[72]["choices"][questions[72]["answer"]])
+        self.assertIn("FP-100", questions[72]["explanation"])
+        for qid in (104, 160):
+            self.assertIn("3레벨", questions[qid]["question"])
+        self.assertIn("장착해 채굴", questions[110]["question"])
+        self.assertIn("부즈 제너레이터", questions[162]["question"])
+        self.assertIn("최소값 조합", questions[337]["question"])
+        self.assertIn("Combat", questions[338]["explanation"])
+        self.assertIn("추가 보정을 제외", questions[380]["question"])
+        self.assertIn("청소로 완화하지 않은", questions[381]["question"])
+
+    def test_crafting_questions_keep_power_exceptions_and_baseline_comparison(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        crafting = questions[417]
+        self.assertIn("지속 전력 요구 특수 제작", crafting["question"])
+        self.assertIn("비트코인 채굴 제외", crafting["question"])
+        self.assertIn("Getting Acquainted", crafting["explanation"])
+        self.assertIn("중단됩니다", crafting["explanation"])
+        self.assertTrue(questions[418]["question"].startswith("다음 중"))
+        self.assertNotIn("유일한", questions[418]["explanation"])
+        self.assertIn("다른 연료 소비 보정 없이", questions[419]["question"])
+        self.assertNotIn("최대 33분 41초", questions[419]["explanation"])
+        self.assertIn("접근 조건", questions[454]["question"])
+        self.assertIn("작업대 건설 없이", questions[454]["choices"][questions[454]["answer"]])
+
+    def test_fourth_review_batch_records_sources_without_claiming_live_verification(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        qids = (
+            7, 47, 67, 72, 104, 110, 141, 160, 162, 337, 338,
+            380, 381, 417, 418, 419, 420, 421, 454,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+        for qid in (380, 381, 417, 418, 419, 420, 421):
+            with self.subTest(limited_evidence=qid):
+                self.assertTrue(questions[qid]["volatile"])
+                self.assertIn("검색 수집본", questions[qid]["volatile_note"])
+                self.assertNotIn("배포 후 현행", questions[qid]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

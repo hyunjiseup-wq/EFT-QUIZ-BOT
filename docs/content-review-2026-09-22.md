@@ -10,9 +10,11 @@
 - 출발점: `ffa276c`, 458문항. 1차: 기존 14문항 수정 + 6문항 추가 = 464문항.
 - 2차: `4f7cf30` 이후 기존 14문항 추가 수정. 총 문항 수는 464개 유지.
 - 3차: `6227926` 이후 19문항 대조. 16문항의 표현·조건 수정, 3문항은 내용 유지·근거 추가.
+- 4차: `1520dcd` 이후 하이드아웃 19문항 대조. 16문항의 범위·예외 수정,
+  3문항은 문제·보기·해설 유지. 검토 메모의 근거 수준도 정정했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 53개(1차 20 + 2차 14 + 3차 19). 그 외 411개를 확인 완료로 표시하지 않는다.
-- `volatile`: 202개(2차에서 수치·규칙 문항 5개 추가). 이 표시는 **출제 제외가 아니다**.
+- 근거를 기록한 문항: 72개(1차 20 + 2차 14 + 3차 19 + 4차 19). 그 외 392개를 확인 완료로 표시하지 않는다.
+- `volatile`: 204개(2차에서 5개, 4차에서 2개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -118,6 +120,33 @@ Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가�
 - Q323: [공식 공지](https://t.me/s/escapefromtarkovEN?before=6701)는 Blackout 기간
   New Beginning 조건의 일시 조정을 명시한다. 평상시 수량과 이벤트 수량 구분이 필요하다.
 
+## 4차 수정 — 하이드아웃·제작 조건
+
+공식 1.1.0 노트와 약 2~3개월 전 위키 검색 수집본을 대조했다. 위키 최신 원문과
+현재 게임 화면을 확인한 것은 아니다. 특히 Q417~421의 기존 메모에 있던
+‘배포 후 현행 문서 재확인’ 표현은 이번에 확보한 근거 수준으로 정정했다.
+
+| 문항 | 판정·처리 | 근거 |
+|---|---|---|
+| Q7 | 계정 공용 창고로 읽히지 않도록 프로필 단위 설명 | [독립 시즌 프로필](https://telegra.ph/Patch-1100-08-03), [Hideout](https://escapefromtarkov.fandom.com/wiki/Hideout) |
+| Q47 | 두 보기 모두 회복 효과가 있어 의료품 제작으로 구분 | [Health system](https://escapefromtarkov.fandom.com/wiki/Health_system), [Salewa](https://escapefromtarkov.fandom.com/wiki/Salewa_first_aid_kit) |
+| Q67 | 보상 증가의 종류 명시 | [Shortage 보상 표](https://escapefromtarkov.fandom.com/wiki/Shortage), [Scavs](https://escapefromtarkov.fandom.com/wiki/Scavs) |
+| Q72·380 | 대상 스킬 그룹·필터·기본값과 개인 보정 구분 | [Character skills](https://escapefromtarkov.fandom.com/wiki/Character_skills), [Hideout Management](https://escapefromtarkov.fandom.com/wiki/Hideout_Management) |
+| Q104 | 생산 레벨·필터 누락 보완 | [정제수](https://escapefromtarkov.fandom.com/wiki/Canister_with_purified_water) |
+| Q110·160 | GPU의 용도·최대 슬롯을 묻는 시설 레벨 구체화 | Hideout |
+| Q162 | 재료 조합을 부즈 제너레이터 제작으로 한정 | [Moonshine](https://escapefromtarkov.fandom.com/wiki/Bottle_of_Fierce_Hatchling_moonshine) |
+| Q337 | 최소 에너지·수분 값만 비교하도록 보기 정리 | Hideout |
+| Q338 | Combat 대상 명시. 구 위키의 직접 처치 요구는 공식 수정 노트를 우선 | 1.1.0, Hideout |
+| Q381 | 청소 완화 전 누적값이라는 전제 추가 | Character skills |
+| Q417 | 일반 제작과 지속 전력 요구 작업을 구분 | Hideout, [Getting Acquainted](https://escapefromtarkov.fandom.com/wiki/Getting_Acquainted) |
+| Q418·419 | 보기 내 비교·보정 없는 기준값으로 한정 | Hideout, Hideout Management |
+| Q454 | 작업대 선행 조건 해제의 범위 명시 | 1.1.0 |
+| Q141·420·421 | 문제·보기·해설은 유지하고 근거 기록. Q420·421 메모의 최신성 단정 정정 | Moonshine, Hideout, Hideout Management |
+
+Q380·381에는 변동 수치 재검토를 위한 `volatile`을 추가했다. Q160·337·380·381·417·419·420의
+숫자가 검색본과 일치하더라도 9월 이후 게임 실측 검증 완료로 간주하지 않는다.
+이번 검수에서는 문제 수·모드·난이도·정답 인덱스·운영 코드를 변경하지 않았다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -155,11 +184,15 @@ Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가�
 - 1차 unittest 135개 통과. 2차는 회귀 테스트 3개 추가 후 138개 통과
   (파일별 실행, 마지막 변경이 있는 테스트 파일은 재실행).
 - 3차는 회귀 테스트 3개 추가 후 전체 141개 통과. 문제 형식 검사·Ruff·변경 테스트 컴파일 통과.
+- 4차는 회귀 테스트 3개 추가 후 전체 144개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 출처 기록 72개·변동형 204개와 양쪽 README 수량 일치.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
   동시 세션 250개와 초과 시작 거절 검사 통과.
   3차에서도 동일한 임시 DB 부하 검사를 재실행해 통과했다.
+  4차 재실행도 통과했으며 통계·후보 조회 약 0.10초, 동시 랭킹 조회 약 0.22초였다.
+  이 시간은 해당 로컬 실행 결과이지 운영 응답시간 보장값이 아니다.
 
 합성 부하는 Discord 실제 서버의 8,500명 동시 접속 검증이 아니다.
 실게임 정답 검증과 소프트웨어 검증 결과는 구분한다.
