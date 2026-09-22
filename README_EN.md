@@ -352,7 +352,12 @@ Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **252 are `volatile`**; **342 questions have source/date records**.
+Ten boss/AI questions were cross-checked, with content changes to seven. Home territories are
+distinguished from exclusive spawn maps, and Kollontay's locations and Big Pipe's equipment are
+qualified. Q358 also explicitly covers the historical Blackout event, not current Labs enemies
+or the faction's first appearance. Related map questions Q357 and Q359 also cover that historical
+event and distinguish emergency access codes from extraction activation.
+Of 464 questions, **261 are `volatile`**; **354 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

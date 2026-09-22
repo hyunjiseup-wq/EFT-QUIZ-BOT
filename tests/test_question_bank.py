@@ -954,6 +954,60 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("확정 보류", questions[367]["volatile_note"])
         self.assertIn("실측 검증은 아님", questions[369]["volatile_note"])
 
+    def test_boss_map_review_separates_home_territory_from_exclusive_spawns(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (133, 134, 217):
+            with self.subTest(qid=qid):
+                self.assertNotIn("상주", questions[qid]["question"])
+                self.assertIn("터미널", questions[qid]["explanation"])
+        self.assertIn("ULTRA", questions[133]["question"])
+        self.assertIn("기숙사", questions[134]["question"])
+        self.assertIn("군사기지", questions[217]["question"])
+        self.assertIn("세관에서 경호원 4명", questions[134]["explanation"])
+        self.assertIn("터미널에서는 3명", questions[134]["explanation"])
+        self.assertIn("리저브의 경비병 6명", questions[217]["explanation"])
+        self.assertIn("터미널의 3명", questions[217]["explanation"])
+
+    def test_boss_review_preserves_identity_and_scopes_blackout_history(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("TerraGroup Labs 연구원", questions[137]["question"])
+        self.assertIn("내무부 아카데미", questions[218]["explanation"])
+        self.assertIn("클리모프 쇼핑몰", questions[218]["explanation"])
+        self.assertIn("Gus", questions[436]["explanation"])
+        self.assertIn("Basmach", questions[436]["explanation"])
+        self.assertIn("FN40GL", questions[437]["explanation"])
+        self.assertIn("매번", questions[437]["explanation"])
+        for qid in (357, 358, 359):
+            with self.subTest(qid=qid):
+                self.assertIn("2026년 7월", questions[qid]["question"])
+                self.assertNotIn("약 1개월", questions[qid]["volatile_note"])
+        self.assertNotIn("먼저 등장", questions[358]["explanation"])
+        self.assertIn("현재 랩의 상시 배치", questions[358]["explanation"])
+        self.assertIn("비상 접근 코드", questions[359]["question"])
+        self.assertIn("화이트보드", questions[359]["explanation"])
+        self.assertNotIn("5619", questions[359]["explanation"])
+
+    def test_eighteenth_review_batch_records_sources_and_evidence_limits(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (133, 134, 135, 136, 137, 217, 218, 357, 358, 359, 436, 437):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["volatile"])
+                self.assertIn("실측 검증은 아님", q["volatile_note"])
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
