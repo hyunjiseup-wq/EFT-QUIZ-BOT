@@ -369,7 +369,11 @@ All 42 story questions were cross-checked, with content changes to 28. Release h
 voice descriptions were corrected. Individual objectives are distinguished from chapter completion,
 ending narratives from route requirements, and wiki speculation from confirmed lore. Source records
 for all story questions do not establish live verification of every branch or game mode.
-Of 464 questions, **286 are `volatile`**; **434 questions have source/date records**.
+Another 20 map questions were cross-checked, with content changes to 17. Direct Lab access is
+distinguished from transit, entry cards from room keys, and silencing announcements from preventing
+Raider spawns. Boss lists do not guarantee simultaneous spawns in every raid. Six map time/capacity
+questions, two minimap/kill-feed questions, and two trader buyback questions still lack source records.
+Of 464 questions, **290 are `volatile`**; **454 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

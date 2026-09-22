@@ -1214,6 +1214,71 @@ class QuestionBankTests(unittest.TestCase):
         theory = next(q for q in stories if q["id"] == 307)
         self.assertIn("추론 자체", theory["volatile_note"])
 
+    def test_lab_access_review_separates_direct_access_transit_and_individual_cards(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("직접 입장", questions[269]["question"])
+        self.assertIn("트랜짓", questions[269]["explanation"])
+        self.assertIn("분대원 각자", questions[270]["question"])
+        self.assertIn("연습·협동 연습에서는 소모되지", questions[128]["explanation"])
+        self.assertEqual(questions[269]["answer"], 0)
+
+    def test_map_review_scopes_extraction_examples_and_removes_unsupported_extremes(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertNotIn("국경 검문소", questions[14]["choices"])
+        self.assertNotIn("MMORPG", " ".join(questions[16]["choices"]))
+        self.assertIn("화학 공장", questions[83]["question"])
+        self.assertNotIn("가장 좁", questions[83]["question"])
+        self.assertIn("Sewer Manhole·D-2", questions[98]["question"])
+        self.assertIn("이 사례들", questions[98]["explanation"])
+        self.assertEqual(questions[98]["choices"][0], "특정 스킬 레벨 달성")
+
+    def test_map_keys_review_distinguishes_door_loot_and_alarm_effects(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("314호", questions[129]["question"])
+        self.assertIn("보장되지는", questions[129]["explanation"])
+        self.assertIn("레이더는 출현할 수", questions[287]["explanation"])
+        self.assertIn("목록에 없는", questions[288]["question"])
+        self.assertIn("목록에 없는", questions[333]["question"])
+        self.assertNotIn("랩에 원자로는 없습니다", questions[333]["explanation"])
+
+    def test_map_enemy_review_does_not_promise_co_spawn_or_exclude_other_mode_enemies(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("반드시 함께 출현한다는 뜻은 아닙니다", questions[444]["explanation"])
+        self.assertIn("기본 NPC 배치", questions[445]["question"])
+        self.assertNotIn("레이더만", questions[445]["choices"][0])
+        self.assertIn("적 전체", questions[445]["explanation"])
+
+    def test_map_review_records_twenty_sources_without_claiming_live_validation(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        reviewed_ids = (
+            14, 16, 81, 82, 83, 84, 85, 86, 98, 119,
+            128, 129, 131, 269, 270, 287, 288, 333, 444, 445,
+        )
+        for qid in reviewed_ids:
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertTrue(question["sources"])
+                self.assertEqual(question["reviewed_at"], "2026-09-22")
+                self.assertEqual(question["answer"], 0)
+                self.assertEqual(question.get("mode", "common"), "common")
+                if question.get("volatile"):
+                    self.assertIn("실측 검증은 아님", question["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
