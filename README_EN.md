@@ -14,8 +14,8 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 | Item | Current value |
 |---|---|
-| Question bank | 464 total — 451 common · 11 PvP-only · 2 PvE-only |
-| Playable pools | PvP 462 (`common+pvp`) · PvE 453 (`common+pve`) |
+| Question bank | 464 total — 449 common · 13 PvP-only · 2 PvE-only |
+| Playable pools | PvP 462 (`common+pvp`) · PvE 451 (`common+pve`) |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -25,7 +25,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 | Storage | Per-server, per-mode SQLite aggregates plus completion history, using WAL |
 
 PvP and PvE are **question-pool tags**, not a claim that every game mechanic differs between the
-two modes. The eleven PvP-only questions cover facts that only apply on the PvP side, including Kord
+two modes. The thirteen PvP-only questions cover facts that only apply on the PvP side, including Kord
 Breach seasonal rules. The two PvE-only questions cover facts whose answers differ in PvE Zone.
 Mechanics shared by permanent PvP profiles and PvE, such as insurance, stay in `common`.
 
@@ -372,8 +372,11 @@ for all story questions do not establish live verification of every branch or ga
 Another 20 map questions were cross-checked, with content changes to 17. Direct Lab access is
 distinguished from transit, entry cards from room keys, and silencing announcements from preventing
 Raider spawns. Boss lists do not guarantee simultaneous spawns in every raid. Six map time/capacity
-questions, two minimap/kill-feed questions, and two trader buyback questions still lack source records.
-Of 464 questions, **290 are `volatile`**; **454 questions have source/date records**.
+questions were subsequently checked against public tables. Base PMC duration is distinguished from
+remaining time, and matching caps from actual populations. Q441 and Q446 now belong only to the PvP
+pool, not the PvE co-op/AI population context. Conflicting Interchange and night Factory capacity values
+remain unresolved. Two minimap/kill-feed and two trader buyback questions still lack source records.
+Of 464 questions, **290 are `volatile`**; **460 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

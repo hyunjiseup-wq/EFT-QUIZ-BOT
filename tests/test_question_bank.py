@@ -1279,6 +1279,54 @@ class QuestionBankTests(unittest.TestCase):
                 if question.get("volatile"):
                     self.assertIn("실측 검증은 아님", question["volatile_note"])
 
+    def test_map_capacity_comparisons_are_pvp_only_and_use_matching_caps(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        indexed = {q["id"]: q for q in questions}
+        pvp_ids = {q["id"] for q in filter_questions_for_mode(questions, "pvp")}
+        pve_ids = {q["id"] for q in filter_questions_for_mode(questions, "pve")}
+        self.assertTrue({441, 446}.issubset(pvp_ids))
+        self.assertTrue({441, 446}.isdisjoint(pve_ids))
+        for qid in (441, 446):
+            with self.subTest(qid=qid):
+                self.assertEqual(indexed[qid]["mode"], "pvp")
+                self.assertIn("상한", indexed[qid]["question"])
+                self.assertIn("PvE", indexed[qid]["explanation"])
+        self.assertIn("주간 기준", indexed[446]["question"])
+        self.assertIn("충돌", indexed[441]["volatile_note"])
+        self.assertIn("5~6명", indexed[446]["volatile_note"])
+
+    def test_map_duration_review_excludes_modifiers_and_scav_remaining_time(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (439, 440, 443):
+            with self.subTest(qid=qid):
+                self.assertIn("모디파이어를 제외", questions[qid]["question"])
+                self.assertIn("PMC", questions[qid]["question"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+        self.assertIn("남은 시간", questions[439]["explanation"])
+        self.assertIn("남은 시간", questions[443]["explanation"])
+        self.assertNotIn("컬티스트도 추가로 등장", questions[440]["explanation"])
+        self.assertIn("쇼어라인에서 트랜짓", questions[442]["question"])
+        self.assertIn("AI나 민간인", questions[442]["explanation"])
+        self.assertEqual(questions[442].get("mode", "common"), "common")
+
+    def test_remaining_map_review_records_sources_and_live_validation_limits(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (439, 440, 441, 442, 443, 446):
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertEqual(question["reviewed_at"], "2026-09-23")
+                self.assertTrue(question["sources"])
+                self.assertTrue(question["volatile"])
+                self.assertIn("실측 검증은 아님", question["volatile_note"])
+                self.assertEqual(question["answer"], 0)
+        self.assertIn("독립 검증 근거는 아님", questions[442]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
