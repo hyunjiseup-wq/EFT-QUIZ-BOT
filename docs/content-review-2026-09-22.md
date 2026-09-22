@@ -14,9 +14,12 @@
   3문항은 문제·보기·해설 유지. 검토 메모의 근거 수준도 정정했다.
 - 5차: `dae3d02` 이후 스킬 31문항과 업적 1문항 대조. 18문항의 표현·조건을 수정하고
   14문항은 문제·보기·해설 유지 후 근거·변동형 메모를 기록했다.
+- 6차: `6ea24f9` 이후 의료·식량 28문항 대조. 24문항의 효과·범위·기본값 설명을 수정하고
+  4문항(Q232·382·383·388)은 문제·보기·해설 유지 후 근거를 기록했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 104개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32). 그 외 360개를 확인 완료로 표시하지 않는다.
-- `volatile`: 221개(2차에서 5개, 4차에서 2개, 5차에서 17개 추가). 이 표시는 **출제 제외가 아니다**.
+- 근거를 기록한 문항: 132개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28).
+  그 외 332개를 확인 완료로 표시하지 않는다.
+- `volatile`: 230개(2차에서 5개, 4차에서 2개, 5차에서 17개, 6차에서 9개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -179,6 +182,30 @@ Q410은 PvE에서 보고된 과거 사례로서 `pve`를 유지하며 Q429는 `c
 버그 기록을 현재 게임의 정답으로 확정한 것이 아니라 문항의 시간 범위를 바꾼 것이다.
 문제 수·난이도·정답 인덱스·모드별 출제 가능 수는 바뀌지 않았다.
 
+## 6차 수정 — 의료 효과·예외·측정 기준
+
+의료·식량 44문항 중 28문항을 추가로 대조했다. 앞서 검토한 Q415를 포함하면 해당
+카테고리의 근거 기록은 29문항이며, 나머지 15문항은 이 차수에서 검토 완료로 표시하지 않는다.
+근거는 약 2~3개월 전 위키 검색 수집본이다. 9월 패치 이후 실측 수치로 단정하지 않는다.
+
+| 문항 | 수정·판정 | 근거 |
+|---|---|---|
+| Q146 | 지구력 스킬 버프를 직접 스태미나 회복 효과로 적은 오류 수정 | [Adrenaline](https://escapefromtarkov.fandom.com/wiki/Adrenaline_injector), [SJ6](https://escapefromtarkov.fandom.com/wiki/SJ6_TGLabs_combat_stimulant_injector) |
+| Q230·235·247·252 | Health 스킬 증감과 HP 재생·피해 구분 | [eTG-change](https://escapefromtarkov.fandom.com/wiki/ETG-change_regenerative_stimulant_injector), [AHF1-M](https://escapefromtarkov.fandom.com/wiki/AHF1-M_stimulant_injector), [Propital](https://escapefromtarkov.fandom.com/wiki/Propital_regenerative_stimulant_injector), 각 술의 개별 문서 |
+| Q55·148 | 중출혈을 전용 지혈 도구만 처치한다는 오해 제거 | [Salewa](https://escapefromtarkov.fandom.com/wiki/Salewa_first_aid_kit), AHF1-M |
+| Q56·116 | 대사 엘리트의 고갈 피해 면역, 수술 스킬의 최대 HP 페널티 예외 보완 | [Metabolism](https://escapefromtarkov.fandom.com/wiki/Metabolism), [Surgery](https://escapefromtarkov.fandom.com/wiki/Surgery) |
+| Q147·384~387 | 진통과 치료 구분, 부위·단위·재출혈 조건 명시 | [Health system](https://escapefromtarkov.fandom.com/wiki/Health_system) |
+| Q233 | 새 키트 비교임을 명시하고 머리뿐 아니라 흉부도 수술 불가임을 보완 | [CMS](https://escapefromtarkov.fandom.com/wiki/CMS_surgical_kit), [Surv12](https://escapefromtarkov.fandom.com/wiki/Surv12_field_surgical_kit), [Medical](https://escapefromtarkov.fandom.com/wiki/Medical) |
+| Q236·255 | 확인되지 않은 드론 설명 삭제, 체온 변화량과 절대 온도 구분 | [SJ9](https://escapefromtarkov.fandom.com/wiki/SJ9_TGLabs_combat_stimulant_injector), [SJ12](https://escapefromtarkov.fandom.com/wiki/SJ12_TGLabs_combat_stimulant_injector) |
+| Q231·294·330·414·416 | 새 아이템 자원·횟수·기본 부작용·표기 사용 시간으로 범위 한정 | Medical, [Ibuprofen](https://escapefromtarkov.fandom.com/wiki/Ibuprofen_painkillers) |
+| Q245·329 | 진통 지속시간의 기본값과 개인 보정 구분 | [Morphine](https://escapefromtarkov.fandom.com/wiki/Morphine_injector), [Immunity](https://escapefromtarkov.fandom.com/wiki/Immunity) |
+| Q232·382·383·388 | 내용은 검색본과 일치, 근거와 필요한 변동형 표시 추가 | Medical, Health system |
+
+Q146·382·384~388·414·416에 `volatile`을 추가했다. 모든 검토 문항의 정확한 출처 URL은
+`questions.json`에 기록했다. 구급상자의 전체 자원과 한 번에 회복하는 HP, 기본 사용 시간과
+실제 조작 시간을 구분했다. 수술 횟수 9회·3회는 영어 Medical 표 기준이며 최신 실측은 아니다.
+정답 인덱스·난이도·모드·문항 수는 변경하지 않았다. 운영 DB나 실행 중 봇도 변경하지 않았다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -221,6 +248,9 @@ Q410은 PvE에서 보고된 과거 사례로서 `pve`를 유지하며 Q429는 `c
   컴파일·`git diff --check` 통과. 출처 기록 72개·변동형 204개와 양쪽 README 수량 일치.
 - 5차는 회귀 테스트 3개 추가 후 전체 147개 통과. 464문항 형식 검사·Ruff·변경 테스트
   컴파일·`git diff --check` 통과. 근거 기록 104개·변동형 221개와 양쪽 README 수량 일치.
+- 6차는 회귀 테스트 3개 추가 후 전체 150개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 132개·변동형 230개와 양쪽 README 수량 일치.
+  변경 전후 JSON 비교로 28문항만 변경됨과 ID·정답 인덱스·난이도·모드·카테고리 보존을 확인했다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
@@ -229,6 +259,7 @@ Q410은 PvE에서 보고된 과거 사례로서 `pve`를 유지하며 Q429는 `c
   4차 재실행도 통과했으며 통계·후보 조회 약 0.10초, 동시 랭킹 조회 약 0.22초였다.
   이 시간은 해당 로컬 실행 결과이지 운영 응답시간 보장값이 아니다.
   5차에서도 동일한 규모의 임시 DB·동시 조회·세션 상한 검사를 재실행해 통과했다.
+  6차 재실행도 통과했으며 통계·후보 조회 약 0.10초, 동시 랭킹 조회 약 0.20초였다.
 
 합성 부하는 Discord 실제 서버의 8,500명 동시 접속 검증이 아니다.
 실게임 정답 검증과 소프트웨어 검증 결과는 구분한다.

@@ -324,6 +324,59 @@ class QuestionBankTests(unittest.TestCase):
             all(q.get("sources") for q in questions.values() if q["category"] == "스킬")
         )
 
+    def test_medical_questions_separate_skill_changes_from_hp_and_stamina_effects(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        adrenaline = questions[146]
+        self.assertIn("체력 재생", adrenaline["choices"][adrenaline["answer"]])
+        self.assertNotIn("스태미나 회복", adrenaline["choices"][adrenaline["answer"]])
+        etg = questions[252]
+        self.assertIn("스킬", etg["choices"][etg["answer"]])
+        self.assertNotIn("체력 감소", etg["choices"][etg["answer"]])
+        self.assertIn("HP 재생이 아닙니다", questions[235]["explanation"])
+        self.assertIn("직접적인 HP 감소가 아닙니다", questions[230]["explanation"])
+        self.assertNotIn("드론", questions[236]["explanation"])
+        self.assertIn("체온 변화량", questions[255]["explanation"])
+
+    def test_medical_questions_keep_exceptions_units_and_baseline_conditions(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("엘리트 효과가 없는", questions[56]["question"])
+        self.assertIn("엘리트", questions[116]["explanation"])
+        self.assertIn("머리와 흉부", questions[233]["explanation"])
+        self.assertIn("골절 치료가 아닙니다", questions[147]["explanation"])
+        self.assertNotIn("전용 아이템으로만", questions[148]["explanation"])
+        self.assertIn("각 신체 부위 하나당", questions[385]["question"])
+        self.assertIn("재출혈 없이", questions[386]["question"])
+        self.assertIn("진통 효과가 없을 때", questions[387]["question"])
+        self.assertIn("추가 보정을 제외", questions[329]["question"])
+        self.assertIn("아직 사용하지 않은", questions[330]["question"])
+        self.assertIn("기본 사용 시간", questions[416]["question"])
+
+    def test_sixth_review_batch_records_limited_sources_and_preserves_common_pool(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            55, 56, 116, 146, 147, 148, 230, 231, 232, 233, 235, 236, 245, 247,
+            252, 255, 294, 329, 330, 382, 383, 384, 385, 386, 387, 388, 414, 416,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+                if questions[qid].get("volatile"):
+                    self.assertIn("검색 수집본", questions[qid]["volatile_note"])
+                    self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+        for qid in (146, 382, 384, 385, 386, 387, 388, 414, 416):
+            self.assertTrue(questions[qid]["volatile"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
