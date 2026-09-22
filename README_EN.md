@@ -322,9 +322,11 @@ standard/permanent placement.
 **Latest review: 2026-09-22.** Cross-checking official 1.1.0, 1.1.5.0, and 1.1.5.1 release notes and
 follow-up announcements led to 14 corrections and six additions (Q459–Q464). A subsequent check
 against indexed wiki content corrected ambiguous choices, missing exceptions, and overbroad claims
-in another 14 questions. See the
+in another 14 questions. A third review covered 19 trader, quest, and seasonal questions:
+16 received wording or condition corrections and three retained their content with source records added.
+See the
 [review record](docs/content-review-2026-09-22.md) for evidence, scope, and outstanding checks.
-Of 464 questions, **202 are `volatile`**; **34 questions have source/date records**.
+Of 464 questions, **202 are `volatile`**; **53 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

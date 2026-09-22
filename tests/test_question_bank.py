@@ -169,6 +169,52 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("최대 HP 감소 페널티", surgery["choices"][surgery["answer"]])
         self.assertNotIn("완전한 체력으로 복구", surgery["explanation"])
 
+    def test_quest_actions_distinguish_equipment_planting_and_hand_over(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        expected_answers = {
+            149: "확인한 뒤", 155: "인코딩된", 163: "MP 계열 산탄총",
+            312: "제출하기", 318: "4개", 324: "114호",
+        }
+        for qid, fragment in expected_answers.items():
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertIn(fragment, question["choices"][question["answer"]])
+        self.assertIn("설치", questions[318]["question"])
+        self.assertIn("FIR 수집·반납 과제가 아니며", questions[318]["explanation"])
+        self.assertIn("직접 열 때", questions[324]["question"])
+        self.assertIn("별도 조작", questions[149]["explanation"])
+        self.assertIn("장착", questions[155]["explanation"])
+
+    def test_progression_questions_keep_baseline_and_expansion_scope(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        self.assertIn("기본 규칙", questions[151]["question"])
+        self.assertIn("판매글", questions[151]["question"])
+        self.assertNotIn("레벨 제한이 전혀 없다", questions[152]["choices"])
+        self.assertIn("최고 레벨", questions[152]["explanation"])
+        self.assertIn("추가 줄 수", questions[374]["question"])
+        self.assertIn("총 크기가 80줄이라는 뜻은 아닙니다", questions[374]["explanation"])
+        self.assertIn("일부 재료", questions[370]["explanation"])
+        for qid in (365, 366):
+            self.assertIn("Kord Breach", questions[qid]["question"])
+        self.assertNotIn("상인 LL4", questions[322]["explanation"])
+
+    def test_third_review_batch_keeps_source_records_and_modes(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        qids = (
+            71, 149, 151, 152, 153, 155, 163, 312, 318, 322, 324,
+            364, 365, 366, 368, 370, 373, 374, 375,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertEqual(question["reviewed_at"], "2026-09-22")
+                self.assertTrue(question["sources"])
+                expected_mode = "pvp" if qid in {364, 365, 366, 375} else "common"
+                self.assertEqual(question.get("mode", "common"), expected_mode)
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

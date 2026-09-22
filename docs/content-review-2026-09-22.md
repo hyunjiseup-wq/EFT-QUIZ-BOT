@@ -9,8 +9,9 @@
 
 - 출발점: `ffa276c`, 458문항. 1차: 기존 14문항 수정 + 6문항 추가 = 464문항.
 - 2차: `4f7cf30` 이후 기존 14문항 추가 수정. 총 문항 수는 464개 유지.
+- 3차: `6227926` 이후 19문항 대조. 16문항의 표현·조건 수정, 3문항은 내용 유지·근거 추가.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 34개(1차 20 + 2차 14). 그 외 430개를 확인 완료로 표시하지 않는다.
+- 근거를 기록한 문항: 53개(1차 20 + 2차 14 + 3차 19). 그 외 411개를 확인 완료로 표시하지 않는다.
 - `volatile`: 202개(2차에서 수치·규칙 문항 5개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
@@ -75,6 +76,48 @@
 Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가했다.
 회귀 테스트 3개는 위 수정 범위·선택지 형식·출처 기록의 유지 여부를 검사하며 사실성 자동 검증은 아니다.
 
+## 3차 수정 — 상인·퀘스트·시즌 규칙
+
+| 문항 | 판정·처리 | 근거 |
+|---|---|---|
+| Q71 | 누적 거래액 제거는 배포 노트와 일치. 부연 설명의 초기 레벨 일괄 하향 단정은 ‘재조정’으로 수정 | [1.1.0 배포 노트](https://telegra.ph/Patch-1100-08-03) |
+| Q149 | 고장 확인과 해제 조작을 혼동. 순서를 분리하고 엘리트의 점검 생략 예외 명시 | [Weapon malfunctions](https://escapefromtarkov.fandom.com/wiki/Weapon_malfunctions), [Controls](https://escapefromtarkov.fandom.com/wiki/Controls) |
+| Q151 | 메뉴 열람과 판매글 등록 구분. 기본 규칙·PMC 기준으로 한정 | [Trading](https://escapefromtarkov.fandom.com/wiki/Trading) |
+| Q152 | 입장 레벨 상한과 매칭 구간을 혼동할 수 있는 보기 수정, 파티 최고 레벨 기준 보완 | [Ground Zero](https://escapefromtarkov.fandom.com/wiki/Ground_Zero) |
+| Q153 | 카파 획득 경로와 업적 교체를 구분, 출시 예정형 설명 정리 | [Kappa](https://escapefromtarkov.fandom.com/wiki/Secure_container_Kappa), 1.1.0 |
+| Q155 | DSP 단순 소지가 아닌 인코딩·장착 상태가 필요함을 보완 | [DSP transmitter](https://escapefromtarkov.fandom.com/wiki/Digital_secure_DSP_radio_transmitter) |
+| Q163 | Setup의 복장 외 지정 MP 계열 산탄총 조건 누락 보완 | [Setup](https://escapefromtarkov.fandom.com/wiki/Setup) |
+| Q312 | 무기를 ‘보여주기’가 아닌 사양 충족 후 제출로 수정 | [Gunsmith - Part 1](https://escapefromtarkov.fandom.com/wiki/Gunsmith_-_Part_1) |
+| Q318 | FIR로 찾아야 하는 과제가 아니라 네 장소에 나이프 설치. 구매품 사용 가능 | [Small Business - Part 3](https://escapefromtarkov.fandom.com/wiki/Small_Business_-_Part_3) |
+| Q322 | 위키 분류 표식과 최신 해금 조건 구분. 예고 내용의 적용 완료 단정 제거 | [Collector](https://escapefromtarkov.fandom.com/wiki/Collector) |
+| Q324 | 문을 직접 열 때 필요한 열쇠와 퀘스트 제출물을 구분 | [Pharmacist](https://escapefromtarkov.fandom.com/wiki/Pharmacist) |
+| Q365·366 | 개인 모디파이어 규칙을 모든 미래 시즌이 아닌 1.1.0 Kord Breach로 한정 | 1.1.0, [포인트 설명 공지](https://t.me/s/escapefromtarkovEN?before=6662) |
+| Q368 | 업적 신규 획득 중단을 적용 완료 시제로 수정 | 1.1.0 |
+| Q370 | 일부 구역·일부 재료의 변경을 명시하고, FIR 완화의 PvP Zone·PvE Zone 범위를 명시 | 1.1.0 |
+| Q374 | 80줄을 총 창고 크기로 오해하게 하는 지문을 ‘구매 추가 줄 수’로 정정 | [Expansion Hub 공지](https://t.me/escapefromtarkovEN/6683), [본문 수록](https://t.me/s/escapefromtarkovEN?before=6701) |
+| Q364·373·375 | 보험·QBZ 탄종·독립 프로필 설명은 배포 노트와 일치. 내용은 유지하고 근거만 추가 | 1.1.0 |
+
+위키 대조 항목에는 여전히 검색 수집본의 최신성 한계가 있다. 최신 표를 확보하려고
+공개 Tarkov.dev GraphQL API를 읽기 전용 조회했으나 서버가 `GraphQL server unavailable`을
+반환해 데이터는 확보하지 못했다. API를 통해 현행 수치를 확인했다고 간주하지 않는다.
+
+대조했지만 이번에 확정하지 못한 항목:
+
+- Q225·226: 위키 검색본은 구 매입 배율과 벼룩시장 3% 수수료를 함께 싣고 있다.
+  공식 1.1.0은 매입 가격 평균 20% 감소와 수수료 5%를 명시한다. 개별 상인 배율이
+  일률적으로 0.8배가 되었다고 추정할 수는 없으므로 최신 배율·순위는 확인 보류다.
+- Q367·369: [컬렉터 예고](https://t.me/escapefromtarkovEN/6680)와
+  [T-45M1 예고](https://t.me/escapefromtarkovEN/6687)는 배포 전 설명이다.
+  최종 1.1.0 노트에는 해당 개별 요구·판매 조건이 없고, Collector 위키 검색본은
+  구 Kappa Path 보상을 기재한다. 출시 후 상세 조건 확정 근거로 사용하지 않는다.
+  이 두 문항은 **아직 미수정·출제 가능 상태**이며 검증 완료 목록에 넣지 않았다.
+- Q410·429: 검색본의 버그 설명은 확인했지만 현재도 재현되는지는 확인하지 못했다.
+  특히 Q429의 일반 레벨 효과가 ‘정상 작동’한다는 부연까지 검증된 것으로 취급하지 않는다.
+- Q315: SR-25·Hybrid 46·PM II 1-8x24·PMC 10명은 검색본과 일치하지만
+  1.1.0 이후의 현행 클라이언트 대조가 아니므로 최신 검증 완료로 올리지 않았다.
+- Q323: [공식 공지](https://t.me/s/escapefromtarkovEN?before=6701)는 Blackout 기간
+  New Beginning 조건의 일시 조정을 명시한다. 평상시 수량과 이벤트 수량 구분이 필요하다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -95,6 +138,7 @@ Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가�
    1.1.0 재편과 Lighthouse 퀘스트 개편 이후의 게임 화면 또는 최신 자료 대조 필요.
    Q164의 세부 조건도 여기에 포함한다.
    Q314의 ‘모든 맵’ 표현은 고쳤지만 최신 대상 맵·선행 조건까지 확인한 것은 아니다.
+   3차의 Q151·163·312·318·322·324 보완도 세부 최신 수치의 실측 완료는 아니다.
 4. 탄약 수치, 의료·하이드아웃·스킬 수치, 맵 인원·시간 등 나머지 변동형 항목:
    `python check_questions.py --volatile`의 목록을 기준으로 계속 검증해야 한다.
 5. Q458(FAMAS G2): 공개 사실과 정식 출시·제원을 구분. 검토한 배포 노트만으로 출시 확정하지 않는다.
@@ -110,10 +154,12 @@ Q389·390·415·424·438에는 `volatile`과 최신성 한계 메모를 추가�
 
 - 1차 unittest 135개 통과. 2차는 회귀 테스트 3개 추가 후 138개 통과
   (파일별 실행, 마지막 변경이 있는 테스트 파일은 재실행).
+- 3차는 회귀 테스트 3개 추가 후 전체 141개 통과. 문제 형식 검사·Ruff·변경 테스트 컴파일 통과.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
   동시 세션 250개와 초과 시작 거절 검사 통과.
+  3차에서도 동일한 임시 DB 부하 검사를 재실행해 통과했다.
 
 합성 부하는 Discord 실제 서버의 8,500명 동시 접속 검증이 아니다.
 실게임 정답 검증과 소프트웨어 검증 결과는 구분한다.
