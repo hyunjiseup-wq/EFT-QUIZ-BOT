@@ -1008,6 +1008,75 @@ class QuestionBankTests(unittest.TestCase):
                 self.assertEqual(q["answer"], 0)
                 self.assertEqual(q.get("mode", "common"), "common")
 
+    def test_cultist_review_separates_night_groups_and_possible_loot(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        night = questions[212]
+        self.assertIn("등대 섬 경비대를 제외", night["question"])
+        self.assertIn("게임 내 22:00~07:00", night["explanation"])
+        self.assertIn("반드시 등장한다는 뜻은 아니며", night["explanation"])
+        self.assertIn("일반 야간", questions[243]["question"])
+        self.assertNotIn("항상", questions[243]["question"])
+        self.assertEqual(questions[243]["choices"][questions[243]["answer"]], "즈레츠(Zhrets)")
+        loot = questions[271]
+        self.assertIn("확정 드롭은 아니다", loot["choices"][loot["answer"]])
+        self.assertNotIn("아무 열쇠", loot["choices"][loot["answer"]])
+        self.assertIn("보장하는 설명은 아닙니다", loot["explanation"])
+
+    def test_ai_review_scopes_transport_services_and_lore(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("Scav 모드를 선택", questions[18]["explanation"])
+        self.assertNotIn("대기 중", questions[18]["question"])
+        self.assertIn("매 레이드 반드시", questions[139]["explanation"])
+        self.assertIn("PMC의 물품 반출", questions[140]["explanation"])
+        self.assertIn("적대할 수 있어", questions[140]["explanation"])
+        self.assertIn("트립와이어", questions[166]["choices"][questions[166]["answer"]])
+        self.assertIn("우즈 맵에서만", questions[166]["explanation"])
+        self.assertIn("설정상", questions[210]["question"])
+        self.assertIn("매번 같은 장소", questions[210]["explanation"])
+        self.assertIn("스폰될 수 있다", questions[214]["choices"][questions[214]["answer"]])
+
+    def test_poison_and_santa_review_bounds_raid_treatment_and_event_year(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        poison = questions[213]
+        self.assertIn("보기 중, 레이드 중 컬티스트 독", poison["question"])
+        self.assertEqual(poison["choices"][poison["answer"]], "xTG-12 주사기")
+        self.assertIn("Perfotoran", poison["explanation"])
+        self.assertNotIn("주사기로만", poison["explanation"])
+        santa = questions[340]
+        self.assertIn("2025년 12월 Kolotun", santa["question"])
+        self.assertIn("보기 중", santa["question"])
+        self.assertIn("더 랩과 더 래버린스", santa["explanation"])
+        self.assertEqual(santa["choices"][santa["answer"]], "더 랩(The Lab)")
+
+    def test_remaining_boss_review_records_sources_without_claiming_live_validation(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        bosses = [q for q in questions if q["category"] == "보스·AI"]
+        self.assertEqual(len(bosses), 30)
+        for q in bosses:
+            with self.subTest(qid=q["id"]):
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["reviewed_at"])
+        reviewed = {18, 132, 139, 140, 165, 166, 210, 212, 213, 214, 215, 216, 243, 271, 340}
+        for q in bosses:
+            if q["id"] not in reviewed:
+                continue
+            with self.subTest(qid=q["id"]):
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+                if q["id"] not in {18, 215, 216}:
+                    self.assertTrue(q["volatile"])
+                    self.assertIn("실측 검증은 아님", q["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

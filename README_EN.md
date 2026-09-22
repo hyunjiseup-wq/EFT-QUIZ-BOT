@@ -357,7 +357,11 @@ distinguished from exclusive spawn maps, and Kollontay's locations and Big Pipe'
 qualified. Q358 also explicitly covers the historical Blackout event, not current Labs enemies
 or the faction's first appearance. Related map questions Q357 and Q359 also cover that historical
 event and distinguish emergency access codes from extraction activation.
-Of 464 questions, **261 are `volatile`**; **354 questions have source/date records**.
+The remaining 15 boss/AI questions were cross-checked to distinguish regular night Cultists from
+Lighthouse guards, in-raid antidotes from other treatment, and possible loot from guaranteed drops.
+The Santa question now explicitly covers the 2025 Kolotun event. All 30 boss/AI questions have
+source records, but this is not completed live-client validation.
+Of 464 questions, **270 are `volatile`**; **369 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
