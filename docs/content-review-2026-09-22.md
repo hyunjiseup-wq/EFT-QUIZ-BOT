@@ -25,9 +25,10 @@
   3문항(Q15·21·393)은 문제·보기·해설을 유지한 채 근거를 추가했다.
 - 10차: `d2a6e2c` 이후 구경·분류·공개 관련 무기 26문항 대조. 13문항을 보완하고
   13문항은 문제·보기·해설을 유지한 채 근거를 추가했다.
-- 근거를 기록한 문항: 214개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26).
-  그 외 250개를 확인 완료로 표시하지 않는다.
-- `volatile`: 242개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개 추가). 이 표시는 **출제 제외가 아니다**.
+- 11차: `e9e7063` 이후 남은 무기 8문항의 모호한 조건·일반화와 근거를 보완했다.
+- 근거를 기록한 문항: 222개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8).
+  그 외 242개를 확인 완료로 표시하지 않는다.
+- `volatile`: 243개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -323,6 +324,47 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
 최신 탄약 피해·관통력·판매 조건 검증이 아니다. 타 사이트의 TKPD 수치가 다른 사례도 있어
 이번에는 무게·반동·가격 등 추가 수치를 채택하지 않았다. 변동형 수량은 242개로 유지했다.
 
+## 11차 — 무기 상태·반동·근접 공격의 일반화 수정
+
+대상: Q28·39·45·51·63·65·70·90. 문항 수·ID·정답 인덱스·난이도·모드는 유지했다.
+
+- Q28: 마모와 ‘관련 있는 스탯’은 MOA도 포함할 수 있어, 수리로 회복하는 상태 수치를 묻도록 명시했다.
+- Q39: PNV-10T를 지정하고, T-7처럼 헬멧에 장착하는 열상 고글도 있음을 설명했다.
+- Q45: 고장이 발생하는 총기로 범위를 한정하고 배출·급탄 실패와 노리쇠 걸림을 보기로 사용했다.
+  PPSh-41 예외를 명시했으며, 고장 규칙은 패치 영향이 있어 `volatile`로 추가 표시했다.
+- Q51: 소음기의 소리·화염 감소와 부착물별 다른 성능을 구분했다.
+- Q63: RPM만으로 서로 다른 총기의 제어 난이도를 단정하지 않도록 수정했다.
+  이는 반동 지표와 부착물 효과를 함께 비교한 판단이며, 두 총기의 실사격 비교 결과가 아니다.
+- Q65: 근거에서 직접 확인되는 자세별 흔들림·반동 제어 차이를 묻도록 보완했다.
+  이동 속도별 산포 공식이나 스킬 효과를 검증한 것으로 간주하지 않는다.
+- Q70: ‘가볍고 소음 없이’라는 단정을 없애고 탄약 없이 베기·찌르기 공격을 할 수 있다는 이점으로 정리했다.
+  근접무기라는 작동 방식에서의 판단이며, 소음 반경 실측을 근거로 한 문항이 아니다.
+- Q90: 취급 무기를 러시아·구소련권으로 표현하고 개별 상품의 해금·재고 검증과 분리했다.
+
+근거:
+
+- [Item repair](https://escapefromtarkov.fandom.com/wiki/Item_repair),
+  [Performance modifiers](https://escapefromtarkov.fandom.com/wiki/Performance_modifiers),
+  [Weapon malfunctions](https://escapefromtarkov.fandom.com/wiki/Weapon_malfunctions)
+- [PNV-10T](https://escapefromtarkov.fandom.com/wiki/PNV-10T_night_vision_goggles),
+  [T-7](https://escapefromtarkov.fandom.com/wiki/T-7_Thermal_Goggles_with_a_Night_Vision_mount)
+- [PPSh-41](https://escapefromtarkov.fandom.com/wiki/PPSh-41_7.62x25_submachine_gun),
+  [PB](https://escapefromtarkov.fandom.com/wiki/PB_9x18PM_silenced_pistol),
+  [P90 Attenuator](https://escapefromtarkov.fandom.com/wiki/FN_P90_Attenuator_5.7x28_sound_suppressor)
+- [Weapon mods](https://escapefromtarkov.fandom.com/wiki/Weapon_mods),
+  [How to Play Guide — Stances](https://escapefromtarkov.fandom.com/wiki/How_to_Play_Guide_for_Escape_from_Tarkov#Stances)
+- [6Kh5 Bayonet](https://escapefromtarkov.fandom.com/wiki/6Kh5_Bayonet),
+  [Crash Axe](https://escapefromtarkov.fandom.com/wiki/Crash_Axe),
+  [Prapor](https://escapefromtarkov.fandom.com/wiki/Prapor)
+
+직접 접근 제한 때문에 약 2~3개월 전 위키 검색 수집본을 사용했다. Prapor 페이지에 남은
+거래액 조건처럼 공식 1.1.0 변경과 맞지 않는 항목은 채택하지 않았다. 이번 검수는 해당 페이지의
+모든 정보가 최신이라는 판정이 아니다. 무기 53문항의 근거 기록도 전수 실측 완료를 뜻하지 않는다.
+
+최신 탄약 데이터 대조를 위해 공개 `api.tarkov.dev/graphql` 응답 가능 여부를 재확인했으나,
+읽기 전용 최소 쿼리가 HTTP 422와 `GraphQL server unavailable. Try again later.`를 반환했다.
+따라서 이번 차수에 탄약 수치를 변경하거나 최신 데이터 검증 완료로 표시하지 않았다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -383,6 +425,11 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
 - 10차는 회귀 테스트 3개 추가 후 전체 163개 통과. 464문항 형식 검사·Ruff·변경 테스트
   컴파일·`git diff --check` 통과. 근거 기록 214개·변동형 242개와 양쪽 README 수량 일치.
   JSON 전후 비교로 26문항만 변경됨과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 재실행하지 않았다.
+- 11차는 회귀 테스트 3개 추가 후 전체 166개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 222개·변동형 243개와 양쪽 README 수량 일치.
+  JSON 전후 비교로 8문항만 변경됨과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  무기 53문항 모두 근거 기록이 생겼지만 최신 클라이언트 실측 완료를 뜻하지 않는다.
   600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.

@@ -591,6 +591,49 @@ class QuestionBankTests(unittest.TestCase):
         for qid, expected in answers.items():
             self.assertEqual(questions[qid]["choices"][questions[qid]["answer"]], expected)
 
+    def test_weapon_condition_and_optics_questions_keep_exceptions_explicit(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("수리로 회복", questions[28]["question"])
+        self.assertIn("MOA", questions[28]["explanation"])
+        self.assertIn("PNV-10T", questions[39]["question"])
+        self.assertIn("T-7", questions[39]["explanation"])
+        self.assertIn("기계적 고장이 발생하는 총기", questions[45]["question"])
+        self.assertIn("PPSh-41", questions[45]["explanation"])
+        self.assertTrue(questions[45]["volatile"])
+        self.assertIn("실측 검증은 아님", questions[45]["volatile_note"])
+
+    def test_weapon_handling_questions_do_not_promise_universal_effects(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("제품별", questions[51]["explanation"])
+        self.assertIn("RPM)만으로", questions[63]["question"])
+        self.assertIn("부착물", questions[63]["choices"][questions[63]["answer"]])
+        self.assertIn("MOA는 같은 개념이 아닙니다", questions[65]["explanation"])
+        self.assertIn("탄약이 없어도", questions[70]["choices"][questions[70]["answer"]])
+        self.assertIn("보장한다는 뜻은 아닙니다", questions[70]["explanation"])
+        self.assertNotIn("소음 없이 사용할 수", questions[70]["explanation"])
+
+    def test_eleventh_review_batch_records_remaining_weapon_sources(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (28, 39, 45, 51, 63, 65, 70, 90):
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+                self.assertEqual(questions[qid]["answer"], 0)
+        # Provenance coverage is not a claim of current in-game verification.
+        self.assertTrue(all(
+            q.get("sources") for q in questions.values() if q["category"] == "무기"
+        ))
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
