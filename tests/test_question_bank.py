@@ -121,6 +121,54 @@ class QuestionBankTests(unittest.TestCase):
         self.assertTrue(smallest_map["question"].startswith("다음 네 맵 중"))
         self.assertEqual(smallest_map["choices"][smallest_map["answer"]], "팩토리")
 
+    def test_exception_corrections_keep_scope_and_sources(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        # 원전 사실성 자동 검증이 아니라 이번에 고친 예외·범위의 회귀 방지다.
+        question_scopes = {
+            29: "귀", 41: "비배신자", 61: "호환 헬멧", 94: "1칸(1x1)",
+            156: "팔·다리·복부", 157: "총탄의 직접 피해", 438: "매칭",
+        }
+        for qid, scope in question_scopes.items():
+            with self.subTest(qid=qid):
+                self.assertIn(scope, questions[qid]["question"])
+        for qid in (29, 41, 61, 94, 118, 156, 157, 220, 314, 389, 390, 415, 424, 438):
+            with self.subTest(provenance=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+        for fragment in ("은신처 제작품", "퀘스트 보상", "Run Through"):
+            self.assertIn(fragment, questions[118]["explanation"])
+        self.assertIn("출혈", questions[157]["explanation"])
+        self.assertIn("퀘스트에 지정된", questions[314]["choices"][questions[314]["answer"]])
+        self.assertNotIn("카파 필수", questions[314]["explanation"])
+        self.assertIn("최고 레벨 구성원", questions[438]["explanation"])
+
+    def test_malfunction_questions_ask_boundaries_not_overlapping_ranges(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        for qid, scope, answer in ((389, "경계값", "93"), (390, "상한", "5%")):
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertIn(scope, question["question"])
+                self.assertEqual(question["choices"][question["answer"]], answer)
+                self.assertTrue(question["volatile"])
+                for choice in question["choices"]:
+                    self.assertNotIn("초과", choice)
+                    self.assertNotIn("이하", choice)
+
+    def test_medical_questions_compare_one_measure_only(self):
+        path = Path(__file__).resolve().parents[1] / "questions.json"
+        questions = {q["id"]: q for q in load_questions(path)}
+        comparison = questions[415]
+        self.assertIn("1회 사용당 최대 HP 회복량", comparison["question"])
+        self.assertEqual(comparison["choices"][comparison["answer"]], "85 → 60")
+        self.assertEqual(len(set(comparison["choices"])), 4)
+        for choice in comparison["choices"]:
+            self.assertRegex(choice, r"^\d+ → \d+$")
+        surgery = questions[424]
+        self.assertIn("최대 HP 감소 페널티", surgery["choices"][surgery["answer"]])
+        self.assertNotIn("완전한 체력으로 복구", surgery["explanation"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
