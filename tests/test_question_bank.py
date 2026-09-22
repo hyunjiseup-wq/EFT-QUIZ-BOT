@@ -377,6 +377,55 @@ class QuestionBankTests(unittest.TestCase):
         for qid in (146, 382, 384, 385, 386, 387, 388, 414, 416):
             self.assertTrue(questions[qid]["volatile"])
 
+    def test_food_comparisons_exclude_ongoing_recovery_and_personal_caps(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("미사용 아이템 전체", questions[228]["question"])
+        self.assertIn("개인 보정·수분 상한 제외", questions[228]["question"])
+        food = questions[229]
+        self.assertIn("즉시 에너지 회복량", food["question"])
+        self.assertIn("지속 회복", food["question"])
+        self.assertIn("300초간 +0.1/s", food["explanation"])
+        self.assertTrue(any("MRE_ration_pack" in url for url in food["sources"]))
+        self.assertIn("추가 보정을 제외", questions[413]["question"])
+
+    def test_stimulant_questions_keep_item_baselines_and_distinct_side_effects(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("아이템 자체의 기본 효과표", questions[234]["question"])
+        self.assertIn("개인 스킬 보정 전", questions[250]["question"])
+        self.assertIn("HP 재생률 -1/s", questions[250]["explanation"])
+        self.assertIn("HP 재생률 -0.1/s", questions[246]["explanation"])
+        self.assertIn("Unknown toxin", questions[249]["explanation"])
+        self.assertIn("영구 면역", questions[249]["explanation"])
+        self.assertIn("시작 지연이 다르므로", questions[254]["explanation"])
+        self.assertIn("개인 보정", questions[253]["explanation"])
+
+    def test_seventh_review_batch_records_sources_for_remaining_medical_questions(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (33, 115, 228, 229, 234, 246, 248, 249, 250, 251, 253, 254,
+                    256, 268, 413):
+            with self.subTest(qid=qid):
+                question = questions[qid]
+                self.assertEqual(question["reviewed_at"], "2026-09-22")
+                self.assertTrue(question["sources"])
+                self.assertEqual(question.get("mode", "common"), "common")
+                if question.get("volatile"):
+                    self.assertIn("검색 수집본", question["volatile_note"])
+                    self.assertIn("실측 검증은 아님", question["volatile_note"])
+        self.assertTrue(questions[234]["volatile"])
+        # Provenance coverage does not assert live-client correctness.
+        self.assertTrue(all(
+            q.get("sources") for q in questions.values() if q["category"] == "의료·식량"
+        ))
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

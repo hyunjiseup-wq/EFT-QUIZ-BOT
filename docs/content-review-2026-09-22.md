@@ -16,10 +16,12 @@
   14문항은 문제·보기·해설 유지 후 근거·변동형 메모를 기록했다.
 - 6차: `6ea24f9` 이후 의료·식량 28문항 대조. 24문항의 효과·범위·기본값 설명을 수정하고
   4문항(Q232·382·383·388)은 문제·보기·해설 유지 후 근거를 기록했다.
+- 7차: `5bdb86d` 이후 남은 의료·식량 15문항 대조. 12문항의 범위·효과 설명을 보완하고
+  3문항(Q33·115·268)은 문제·보기·해설을 유지했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 132개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28).
-  그 외 332개를 확인 완료로 표시하지 않는다.
-- `volatile`: 230개(2차에서 5개, 4차에서 2개, 5차에서 17개, 6차에서 9개 추가). 이 표시는 **출제 제외가 아니다**.
+- 근거를 기록한 문항: 147개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15).
+  그 외 317개를 확인 완료로 표시하지 않는다.
+- `volatile`: 231개(2차에서 5개, 4차에서 2개, 5차에서 17개, 6차에서 9개, 7차에서 1개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -206,6 +208,28 @@ Q146·382·384~388·414·416에 `volatile`을 추가했다. 모든 검토 문항
 실제 조작 시간을 구분했다. 수술 횟수 9회·3회는 영어 Medical 표 기준이며 최신 실측은 아니다.
 정답 인덱스·난이도·모드·문항 수는 변경하지 않았다. 운영 DB나 실행 중 봇도 변경하지 않았다.
 
+## 7차 수정 — 남은 의료·식량 비교 조건
+
+앞선 차수에서 남은 의료·식량 15문항을 대조했다. 이 분류 44문항 모두에 근거 기록이
+생겼지만, 이번에도 약 2~3개월 전 위키 검색 수집본에 의존했으므로 최신 실측 완료는 아니다.
+
+| 문항 | 수정·판정 | 근거 |
+|---|---|---|
+| Q228 | 전체 미사용 음료의 기본값 비교로 한정. 부분 섭취·개인 보정·회복 상한과 구분 | [Aquamari](https://escapefromtarkov.fandom.com/wiki/Aquamari_water_bottle_with_filter), 생수·그랜드 주스·비상용 식수 개별 문서 |
+| Q229 | MRE의 지속 회복을 포함하면 동률 가능. 즉시 회복 비교임을 명시 | [MRE](https://escapefromtarkov.fandom.com/wiki/MRE_ration_pack), [마요네즈](https://escapefromtarkov.fandom.com/wiki/Jar_of_DevilDog_mayo), 이스크라·연유 개별 문서 |
+| Q234·250 | 아이템 자체의 확률 효과와 개인 면역 보정 구분. 옵돌보스 2의 부작용 보완 | [Obdolbos](https://escapefromtarkov.fandom.com/wiki/Obdolbos_cocktail_injector), [Obdolbos 2](https://escapefromtarkov.fandom.com/wiki/Obdolbos_2_cocktail_injector), [Immunity](https://escapefromtarkov.fandom.com/wiki/Immunity) |
+| Q246 | 하중 한계 증가와 물건 무게 감소 구분, HP 재생률 부작용 명시 | [M.U.L.E.](https://escapefromtarkov.fandom.com/wiki/M.U.L.E._stimulant_injector) |
+| Q248·249 | 지혈·해독의 적용 범위와 지속성 명시 | [Zagustin](https://escapefromtarkov.fandom.com/wiki/Zagustin_hemostatic_drug_injector), [Perfotoran](https://escapefromtarkov.fandom.com/wiki/Perfotoran_%28Blue_Blood%29_stimulant_injector) |
+| Q251·253·254·256 | 기본 버프, 개인 보정, 효과 종류별 시간과 부작용을 구분 | [L1](https://escapefromtarkov.fandom.com/wiki/L1_%28Norepinephrine%29_injector), [Trimadol](https://escapefromtarkov.fandom.com/wiki/Trimadol_stimulant_injector), [Meldonin](https://escapefromtarkov.fandom.com/wiki/Meldonin_injector), [3-(b-TG)](https://escapefromtarkov.fandom.com/wiki/3-%28b-TG%29_stimulant_injector) |
+| Q413 | 같은 보정 전 진통 시간 비교로 명시. 방사능 제거 지속시간과 구분 | [Golden Star](https://escapefromtarkov.fandom.com/wiki/Golden_Star_balm), [Medical](https://escapefromtarkov.fandom.com/wiki/Medical), Immunity |
+| Q33·115·268 | 내용은 검색본과 일치, 근거 기록 | [GP-7](https://escapefromtarkov.fandom.com/wiki/GP-7_gas_mask), [Splint](https://escapefromtarkov.fandom.com/wiki/Immobilizing_splint), [Max Energy](https://escapefromtarkov.fandom.com/wiki/Can_of_Max_Energy_energy_drink) |
+
+Q229는 마요네즈 즉시 회복 100과 MRE 즉시 회복 70만 비교하면 정답이 하나다.
+그러나 MRE의 기본 지속 회복 `0.1 × 300 = 30`까지 더하면 총 표기량 100으로 같아진다.
+이는 두 문서 수치에서 계산한 비교이며 소비·상한을 포함한 게임 내 실제 순증가량 실측은 아니다.
+Q254도 버프와 디버프의 시작 지연이 달라 주사기 전체를 하나의 종료 시각으로 요약할 수 없다.
+Q234에 `volatile`을 추가했으며 모드·난이도·정답 인덱스·문항 수는 유지했다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -251,6 +275,10 @@ Q146·382·384~388·414·416에 `volatile`을 추가했다. 모든 검토 문항
 - 6차는 회귀 테스트 3개 추가 후 전체 150개 통과. 464문항 형식 검사·Ruff·변경 테스트
   컴파일·`git diff --check` 통과. 근거 기록 132개·변동형 230개와 양쪽 README 수량 일치.
   변경 전후 JSON 비교로 28문항만 변경됨과 ID·정답 인덱스·난이도·모드·카테고리 보존을 확인했다.
+- 7차는 회귀 테스트 3개 추가 후 전체 153개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 147개·변동형 231개와 양쪽 README 수량 일치.
+  변경 전후 JSON 비교로 15문항만 변경됨과 ID·정답 인덱스·난이도·모드·카테고리 보존을 확인했다.
+  의료·식량 44문항 모두에 근거 기록이 생겼지만 테스트는 실제 게임 사실성을 판정하지 않는다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
