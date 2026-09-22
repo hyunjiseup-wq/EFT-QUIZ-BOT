@@ -18,10 +18,12 @@
   4문항(Q232·382·383·388)은 문제·보기·해설 유지 후 근거를 기록했다.
 - 7차: `5bdb86d` 이후 남은 의료·식량 15문항 대조. 12문항의 범위·효과 설명을 보완하고
   3문항(Q33·115·268)은 문제·보기·해설을 유지했다.
+- 8차: `f62cae0` 이후 장비 27문항 대조. 20문항의 계산·조건·설명을 수정하고
+  7문항은 문제·보기·해설을 유지했다. Q289는 정답 인덱스도 0에서 2로 수정했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 147개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15).
-  그 외 317개를 확인 완료로 표시하지 않는다.
-- `volatile`: 231개(2차에서 5개, 4차에서 2개, 5차에서 17개, 6차에서 9개, 7차에서 1개 추가). 이 표시는 **출제 제외가 아니다**.
+- 근거를 기록한 문항: 174개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27).
+  그 외 290개를 확인 완료로 표시하지 않는다.
+- `volatile`: 239개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -230,6 +232,41 @@ Q229는 마요네즈 즉시 회복 100과 MRE 즉시 회복 70만 비교하면 �
 Q254도 버프와 디버프의 시작 지연이 달라 주사기 전체를 하나의 종료 시각으로 요약할 수 없다.
 Q234에 `volatile`을 추가했으며 모드·난이도·정답 인덱스·문항 수는 유지했다.
 
+## 8차 수정 — 장비 계산·비교·획득 범위
+
+앞서 검토한 장비 6문항을 제외한 27문항을 대조했다. 장비 33문항 모두에 출처 기록이
+생겼지만 대부분 약 2~3개월 전 위키 검색 수집본이며 최신 클라이언트 실측은 아니다.
+Q159는 공식 0.14.0.0 포럼 원문이 403으로 열리지 않아 당시 배포 노트를 전재한
+[PCGamesN의 2023-12-27 기사](https://www.pcgamesn.com/escape-from-tarkov/0-14-patch-notes)를 근거로 기록했다.
+공식 원문 직접 확인이나 현재 히트박스 검증으로 표시하지 않는다.
+
+| 문항 | 수정·판정 | 근거 |
+|---|---|---|
+| Q289 | 공간 효율과 kg당 칸수 혼동. **정답을 파르티잔 가방으로 변경** | [Backpacks](https://escapefromtarkov.fandom.com/wiki/Backpacks) |
+| Q396 | 키 케이스 계산 정정, 수납 제한 명시 | [Key case](https://escapefromtarkov.fandom.com/wiki/Key_case), [Dogtag case](https://escapefromtarkov.fandom.com/wiki/Dogtag_case), [Containers](https://escapefromtarkov.fandom.com/wiki/Containers) |
+| Q207·208·239 | 보기 내 비교·빈 배낭 무게로 한정, 의료 전용 가방 제한 보완 | Backpacks |
+| Q399·400·402·412 | 재질만의 비교, 실효 내구도와 방어 등급 구분, 명중 대상과 두 계산 요인 명시 | [Ballistics](https://escapefromtarkov.fandom.com/wiki/Ballistics), [Death Knight](https://escapefromtarkov.fandom.com/wiki/Death_Knight_mask), [CQCM Black](https://escapefromtarkov.fandom.com/wiki/Atomic_Defense_CQCM_ballistic_mask_%28Black%29) |
+| Q411 | 게임 등급 대응과 실물 시험·인증 성능 구분 | [Armor vests](https://escapefromtarkov.fandom.com/wiki/Armor_vests) |
+| Q6·19·26·34 | 보존·보호·수납 범위를 다른 슬롯이나 모든 품목으로 확대하지 않음 | [Secure containers](https://escapefromtarkov.fandom.com/wiki/Secure_containers), [Headwear](https://escapefromtarkov.fandom.com/wiki/Headwear), Containers |
+| Q176·219·221·222·295 | 에디션·내부 용량·보상 경로 한정. 관련 없는 Omicron 최신성 단정 제거 | [Gamma](https://escapefromtarkov.fandom.com/wiki/Secure_container_Gamma), [Alpha](https://escapefromtarkov.fandom.com/wiki/Secure_container_Alpha), [Theta](https://escapefromtarkov.fandom.com/wiki/Secure_container_Theta), [Prestige](https://escapefromtarkov.fandom.com/wiki/Prestige), [Waist pouch](https://escapefromtarkov.fandom.com/wiki/Waist_pouch) |
+| Q290 | 일반 시청자 보상처럼 읽히지 않도록 특별 참가 계정으로 한정 | [Tournament container](https://escapefromtarkov.fandom.com/wiki/Tournament_secured_container), [Fanny pack](https://escapefromtarkov.fandom.com/wiki/Fanny_pack_%28Loui_Peeton%29) |
+| Q10·11·112·159·397·398·401 | 내용 유지, 출처와 필요한 변동형 메모 기록 | [Health system](https://escapefromtarkov.fandom.com/wiki/Health_system), [Earpieces](https://escapefromtarkov.fandom.com/wiki/Earpieces), [Eyewear](https://escapefromtarkov.fandom.com/wiki/Eyewear), Ballistics, 당시 패치 전재 기사 |
+
+계산은 출처의 기초값에서 다시 수행했다.
+
+- Q289: 파르티잔 `20 / 0.7 ≈ 28.57`, LBT-2670 `48 / 1.92 = 25`,
+  6Sh118 `48 / 3.5 ≈ 13.71`, Blackjack 50 `42 / 3.265 ≈ 12.86`칸/kg.
+  기존 2.4·1.67·1.2·1.14는 외부 점유 칸 대비 공간 효율이었다.
+- Q396: Containers 표의 키 케이스 효율 13.83은 개별 페이지의 `77 / 6 ≈ 12.83`과
+  맞지 않아 기초값으로 계산한 값을 채택했다. 정답 도그태그 케이스는 변하지 않는다.
+- Q412: `55 / 0.1875 ≈ 293.33`, `35 / 0.3375 ≈ 103.70`.
+  재질 계수뿐 아니라 표시 내구도 차이도 결과에 기여한다. 이것으로 관통 방어력 우열을 단정하지 않는다.
+
+Q176·219·396·399~402·412에 `volatile`을 추가했다. Q221·222·295의 현재 보상·획득 조건,
+Q398~402·412의 최신 수치는 별도 실측이 필요하다. 방어 성능 제거 공지의 Shattered·Death Shadow와
+Q412의 Death Knight는 다른 아이템이므로 같은 마스크로 취급하지 않았다.
+문항 수·ID·난이도·모드는 유지했다. 운영 DB 및 실행 중 봇은 변경하지 않았다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -279,6 +316,10 @@ Q234에 `volatile`을 추가했으며 모드·난이도·정답 인덱스·문�
   컴파일·`git diff --check` 통과. 근거 기록 147개·변동형 231개와 양쪽 README 수량 일치.
   변경 전후 JSON 비교로 15문항만 변경됨과 ID·정답 인덱스·난이도·모드·카테고리 보존을 확인했다.
   의료·식량 44문항 모두에 근거 기록이 생겼지만 테스트는 실제 게임 사실성을 판정하지 않는다.
+- 8차는 회귀 테스트 4개 추가 후 전체 157개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 174개·변동형 239개와 양쪽 README 수량 일치.
+  장비 27문항의 근거를 추가하고 20문항의 내용을 보완했다. Q289의 정답 인덱스는 0에서 2로 수정했다.
+  의료·식량 44문항과 장비 33문항 모두 근거가 있지만 최신 게임 실측 완료를 뜻하지 않는다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,

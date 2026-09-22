@@ -426,6 +426,72 @@ class QuestionBankTests(unittest.TestCase):
             q.get("sources") for q in questions.values() if q["category"] == "의료·식량"
         ))
 
+    def test_backpack_answer_uses_slots_per_kilogram_not_storage_efficiency(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        question = questions[289]
+        # Indexed source values, in choice order; arithmetic, not a live stat fetch.
+        capacities_and_weights = ((48, 1.92), (48, 3.5), (20, 0.7), (42, 3.265))
+        ratios = [slots / weight for slots, weight in capacities_and_weights]
+        self.assertEqual(question["answer"], max(range(4), key=ratios.__getitem__))
+        self.assertIn("파르티잔", question["choices"][question["answer"]])
+        self.assertIn("1kg당 내부 칸수", question["question"])
+        for value in ("28.57", "25", "13.71", "12.86"):
+            self.assertIn(value, question["explanation"])
+        self.assertNotIn("kg당 2.4칸", question["explanation"])
+
+    def test_container_and_armor_comparisons_do_not_copy_inconsistent_efficiencies(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn(f"77÷6≈{77 / 6:.2f}", questions[396]["explanation"])
+        self.assertNotIn("13.83", questions[396]["explanation"])
+        self.assertIn("도그태그만", questions[396]["explanation"])
+        for durability, destructibility in ((55, 0.1875), (35, 0.3375)):
+            self.assertIn(f"{durability / destructibility:.2f}", questions[412]["explanation"])
+        mask = questions[412]
+        self.assertIn("표시 내구도", mask["choices"][mask["answer"]])
+        self.assertIn("재질 파괴도", mask["choices"][mask["answer"]])
+        self.assertIn("방어 등급이나 관통 방어력", questions[400]["explanation"])
+
+    def test_gear_questions_bound_capacity_equipment_and_reward_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("의료 물자만", questions[207]["explanation"])
+        for qid in (208, 239):
+            self.assertIn("내용물을 제외한", questions[qid]["question"])
+        self.assertIn("제품과 부착물", questions[19]["explanation"])
+        self.assertIn("Arena 연동 조건", questions[221]["explanation"])
+        self.assertNotIn("아직 미출시", questions[222]["explanation"])
+        self.assertIn("참가용 특별 계정", questions[290]["question"])
+        self.assertIn("확정 지급", questions[295]["explanation"])
+
+    def test_eighth_review_batch_records_gear_sources_and_numeric_volatility(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            6, 10, 11, 19, 26, 34, 112, 159, 176, 207, 208, 219, 221, 222,
+            239, 289, 290, 295, 396, 397, 398, 399, 400, 401, 402, 411, 412,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+        for qid in (176, 219, 396, 399, 400, 401, 402, 412):
+            self.assertTrue(questions[qid]["volatile"])
+            self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+        self.assertTrue(all(
+            q.get("sources") for q in questions.values() if q["category"] == "장비"
+        ))
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
