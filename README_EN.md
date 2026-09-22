@@ -334,11 +334,13 @@ Another 19 ammunition questions distinguish penetration probability/blunt damage
 Comparisons now specify their choices and projectile scope; numeric checks used indexed wiki copies, not live measurements.
 A further 25 ammunition questions had their answers, option values, and explanations cross-checked and scoped.
 45 of 46 ammunition questions now have source records; Q369's starting T-45M1 sale condition and live values remain unverified.
+Another 22 basic-system/season questions clarify LEDX's purpose, faction selection, separate PMC/Scav
+characters, and death/MIA protection exceptions. Seasonal rewards mean unlocked trader offers, not transfer of all gear.
 Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **244 are `volatile`**; **266 questions have source/date records**.
+Of 464 questions, **247 are `volatile`**; **288 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

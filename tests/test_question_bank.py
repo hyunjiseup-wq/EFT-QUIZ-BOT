@@ -735,6 +735,56 @@ class QuestionBankTests(unittest.TestCase):
                 self.assertIn("검색 수집본", q["volatile_note"])
                 self.assertIn("실측 검증은 아님", q["volatile_note"])
 
+    def test_basic_system_review_separates_pmc_scav_and_raid_choices(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("캐릭터 생성 시", questions[17]["explanation"])
+        self.assertIn("The Lab", questions[30]["explanation"])
+        self.assertIn("선택하는 정보", questions[49]["question"])
+        self.assertNotIn("PMC 캐릭터가 Scav로", questions[74]["question"])
+        self.assertIn("별도로 성장", questions[74]["explanation"])
+        self.assertIn("PMC의 소지품", questions[107]["choices"][0])
+        self.assertIn("보존된다는 뜻은 아닙니다", questions[107]["explanation"])
+
+    def test_basic_system_review_corrects_item_and_loss_explanations(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("정맥의 위치", questions[109]["explanation"])
+        self.assertNotIn("AN-94", questions[114]["explanation"])
+        self.assertIn("Vector Gen.2 9x19", questions[114]["question"])
+        self.assertEqual(questions[114]["choices"][0], "차지샷(모아쏘기)")
+        self.assertIn("컬티스트 칼 제외", questions[5]["explanation"])
+        self.assertIn("보호 예외", questions[97]["choices"][0])
+        self.assertIn("장착 중이던 보험 장비", questions[97]["explanation"])
+        self.assertIn("경험치", questions[96]["explanation"])
+        self.assertIn("상인 거래 상품", questions[448]["question"])
+        self.assertIn("모든 장비·전리품", questions[448]["explanation"])
+
+    def test_fourteenth_review_batch_records_system_sources_and_preserves_modes(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            2, 4, 5, 17, 30, 49, 74, 92, 93, 96, 97, 106, 107, 109,
+            114, 408, 409, 447, 448, 449, 451, 455,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertEqual(q["answer"], 0)
+                expected_mode = "pvp" if qid in (447, 448) else "common"
+                self.assertEqual(q.get("mode", "common"), expected_mode)
+        for qid in (5, 97, 409):
+            self.assertTrue(questions[qid]["volatile"])
+            self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
