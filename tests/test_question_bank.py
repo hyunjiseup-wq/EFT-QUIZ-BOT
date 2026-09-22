@@ -1144,6 +1144,76 @@ class QuestionBankTests(unittest.TestCase):
                     self.assertTrue(q["sources"])
                     self.assertTrue(q["reviewed_at"])
 
+    def test_story_review_corrects_release_history_and_voice_generalization(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("클로즈드 베타", questions[79]["explanation"])
+        self.assertIn("2025년 11월 15일", questions[79]["explanation"])
+        self.assertNotIn("오픈 베타", questions[79]["explanation"])
+        self.assertIn("러시아 억양의 영어", questions[100]["explanation"])
+        self.assertEqual(questions[100]["choices"][questions[100]["answer"]], "영어")
+        self.assertEqual(questions[309]["choices"][0], "게임 에디션 이름")
+        self.assertNotIn("최상위", questions[309]["explanation"])
+
+    def test_lore_review_separates_documented_background_from_inference(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("지주회사", questions[76]["choices"][0])
+        self.assertIn("스캔들", questions[77]["choices"][0])
+        self.assertIn("기반 회사", questions[306]["question"])
+        self.assertNotIn("법인 등록", questions[306]["question"])
+        self.assertIn("위키가", questions[307]["question"])
+        self.assertIn("공식 확정됐다는 뜻은 아닙니다", questions[307]["explanation"])
+        self.assertIn("전체 인력", questions[345]["question"])
+        self.assertIn("열거되지 않은", questions[346]["question"])
+
+    def test_story_objectives_have_specific_locations_and_shared_progress_exception(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("코즐로프", questions[303]["question"])
+        self.assertIn("1층 110호", questions[303]["explanation"])
+        self.assertIn("인터체인지", questions[352]["explanation"])
+        self.assertIn("도착·조사", questions[353]["question"])
+        self.assertIn("자동 완료", questions[354]["explanation"])
+        self.assertIn("Boreas", questions[354]["explanation"])
+        self.assertIn("직접 이어지는", questions[355]["question"])
+        self.assertIn("처치만으로 챕터 전체", questions[301]["explanation"])
+
+    def test_ending_review_separates_choices_replay_and_reward_types(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertEqual(questions[299]["choices"][0], "4가지")
+        self.assertEqual(questions[308]["choices"][0], "10개")
+        self.assertIn("필수 진행 순서", questions[308]["explanation"])
+        self.assertIn("처음 제안을 수락하는 것만으로", questions[348]["explanation"])
+        self.assertNotIn("최선의 엔딩", questions[349]["explanation"])
+        self.assertIn("조건을 충족한 프레스티지 후 재진행", questions[350]["choices"][0])
+        self.assertIn("퀘스트용 컨테이너", questions[356]["explanation"])
+        self.assertEqual(questions[356]["choices"][0], "시큐어 컨테이너 업그레이드")
+
+    def test_story_review_records_all_sources_without_claiming_live_validation(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        stories = [q for q in questions if q["category"] == "스토리"]
+        self.assertEqual(len(stories), 42)
+        for q in stories:
+            with self.subTest(qid=q["id"]):
+                self.assertTrue(q["sources"])
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+                if q.get("volatile") and q["id"] != 307:
+                    self.assertIn("실측 검증은 아님", q["volatile_note"])
+        theory = next(q for q in stories if q["id"] == 307)
+        self.assertIn("추론 자체", theory["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

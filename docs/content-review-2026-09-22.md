@@ -43,9 +43,11 @@
   5문항(Q132·165·214·215·216)은 문제·보기·해설을 유지한 채 근거를 기록했다.
 - 20차: `3bbdbe6` 이후 하이드아웃 9문항·기본 시스템 14문항 대조. 13문항의 내용을
   보완하고 10문항은 문제·보기·해설을 유지한 채 근거·검토 범위를 기록했다.
-- 근거를 기록한 문항: 392개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22 + 15차 35 + 16차 11 + 17차 8 + 18차 12 + 19차 15 + 20차 23).
-  그 외 72개를 확인 완료로 표시하지 않는다. 근거가 있는 문항도 충돌·미확인 사항이 남는다.
-- `volatile`: 284개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개, 15차 4개, 16차 1개, 18차 9개, 19차 9개, 20차 14개 추가). 이 표시는 **출제 제외가 아니다**.
+- 21차: `690b271` 이후 스토리 42문항 전체 대조. 28문항의 내용을 보완하고
+  14문항은 문제·보기·해설을 유지한 채 근거·한계를 기록했다.
+- 근거를 기록한 문항: 434개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22 + 15차 35 + 16차 11 + 17차 8 + 18차 12 + 19차 15 + 20차 23 + 21차 42).
+  그 외 30개를 확인 완료로 표시하지 않는다. 근거가 있는 문항도 충돌·미확인 사항이 남는다.
+- `volatile`: 286개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개, 15차 4개, 16차 1개, 18차 9개, 19차 9개, 20차 14개, 21차 2개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -793,6 +795,60 @@ Q95 미니맵·Q102 킬피드는 검색 결과에 Arena·제3자 오버레이·�
 본편 일반 레이드의 화면 범위와 퀘스트 진행 알림 예외를 후속 검토해야 한다.
 근거가 아직 없는 72문항은 스토리 42·맵 26·시스템 2·상인 2문항이다.
 
+## 21차 — 세계관의 근거 수준과 스토리 목표·결말 구분
+
+대상은 스토리 카테고리 42문항 전부다. 내용 변경 28문항:
+Q76·77·79·99·100·174·297·300·301·303·305~309·342·344~346·348~356.
+나머지 14문항은 보기·해설을 유지했다. 보기 문구 수정은 Q76·77·174·305·309·350뿐이다.
+문항 수·ID·정답 인덱스·난이도·모드·카테고리는 보존했다.
+
+| 범위 | 수정 이유 |
+| --- | --- |
+| Q79·100 | 베타 유형과 BEAR 음성의 예외를 바로잡음. |
+| Q76·77·99·174·305~307·342·344~346 | 기업·조직·인력의 범위와 문서상 근거 수준을 명확히 하고, 위키 추론을 공식 확정 설정과 구분. |
+| Q297·300·301·303·308·309 | 본편의 챕터와 별도 모드·에디션을 구분. Q303은 다른 보기의 지역도 방문하므로 코즐로프의 방으로 질문을 특정. 챕터 목록 순서가 필수 진행 순서는 아님. |
+| Q348~350·356 | 결말의 서술·선택·재진행 조건·보상 종류를 구분하고 주관적인 최선 평가를 제거. |
+| Q351~355 | 초기 조사 대상과 전체 챕터를 구분. 지도 목록을 보완하고 다른 챕터에서 이미 수행한 목표의 예외를 명시. |
+
+대조한 자료:
+
+- [공식 1.0 스토리 출시 영상](https://www.youtube.com/watch?v=Dd3MSNfRZ68),
+  [Release dates](https://escapefromtarkov.fandom.com/wiki/Release_dates): Q79.
+- [Tarkov](https://escapefromtarkov.fandom.com/wiki/Tarkov),
+  [Tarkov conflict](https://escapefromtarkov.fandom.com/wiki/Tarkov_conflict),
+  [공식 Raid 영상](https://www.youtube.com/watch?v=q9OIT7W24V8): Q1·3·77·168·175.
+- [USEC](https://escapefromtarkov.fandom.com/wiki/USEC),
+  [BEAR](https://escapefromtarkov.fandom.com/wiki/BEAR),
+  [초보자 가이드](https://escapefromtarkov.fandom.com/wiki/How_to_Play_Guide_for_Escape_from_Tarkov):
+  Q3·99·100·169~171·174·342~346. 세계관 배경과 음성만 대조했으며 구 Rogue 적대 규칙은 채택하지 않음.
+- [TerraGroup](https://escapefromtarkov.fandom.com/wiki/TerraGroup): Q76·177·302·304~307.
+  Q307은 2021년 티저에 관한 위키 해석이라는 한계를 유지한다.
+- [Peacekeeper](https://escapefromtarkov.fandom.com/wiki/Peacekeeper),
+  [Humanitarian Supplies](https://escapefromtarkov.fandom.com/wiki/Humanitarian_Supplies): Q298.
+- [Story chapters](https://escapefromtarkov.fandom.com/wiki/Story_chapters),
+  [일본어 스토리 목록](https://wikiwiki.jp/eft/%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AA%E3%83%BC%E3%82%BF%E3%82%B9%E3%82%AF):
+  Q297·300·308. 영어 목록은 약 3개월 전 수집본이며 일본어 목록은 2026-09-21 수정 표시.
+  두 목록이 일치하지만 전체 단계의 최신성 확인과는 구분한다.
+- [They Are Already Here](https://escapefromtarkov.fandom.com/wiki/They_Are_Already_Here),
+  [Accidental Witness](https://escapefromtarkov.fandom.com/wiki/Accidental_Witness),
+  [The Unheard](https://escapefromtarkov.fandom.com/wiki/The_Unheard),
+  [공식 Steam 에디션 설명](https://store.steampowered.com/app/4090980/Escape_from_Tarkov__The_Unheard_Steam_Edition_Expansion_Pack/):
+  Q177·301·303·309. 에디션의 현재 최고 등급·구매 권장 여부는 묻지 않는다.
+- [Endings](https://escapefromtarkov.fandom.com/wiki/Endings),
+  [The Ticket](https://escapefromtarkov.fandom.com/wiki/The_Ticket),
+  [일본어 The Ticket](https://wikiwiki.jp/eft/%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AA%E3%83%BC%E3%82%BF%E3%82%B9%E3%82%AF/The%20Ticket):
+  Q299·347~350·355·356. 모드별 돈·처치 수량·연락 대기시간이 다른 자료는 최신값으로 확정하지 않음.
+- [Falling Skies](https://escapefromtarkov.fandom.com/wiki/Falling_Skies),
+  [Batya](https://escapefromtarkov.fandom.com/wiki/Batya),
+  [Boreas](https://escapefromtarkov.fandom.com/wiki/Boreas),
+  [Blue Fire](https://escapefromtarkov.fandom.com/wiki/Blue_Fire): Q351~355.
+
+영문 위키의 상당수는 약 2~3개월 전 검색 수집본이다. 구 Prestige 문서는 여전히 PvP 전용으로
+설명하고 있으므로 Q350의 현재 모드 제한이나 요구조건 검증 근거로 채택하지 않았다.
+모든 프로필에서 바로 초기화·프레스티지를 쓸 수 있다고 보장하지 않는다.
+Q100·309에 변동형 표시를 추가했고, 스토리 42문항 모두 근거를 기록했다.
+남은 미기록 30문항은 맵 26·시스템 2·상인 2문항이다. 출처 기록이 전체 실게임 검증을 뜻하지 않는다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -909,6 +965,12 @@ Q95 미니맵·Q102 킬피드는 검색 결과에 Arena·제3자 오버레이·�
   보관 위치 표현과 원문 수집 시점 메모를 다듬은 뒤 문항 테스트 74개·형식 검사를 재실행했다.
   600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에
   로컬 재실행하지 않았으며 18차 결과와 구분한다.
+- 21차는 회귀 테스트 5개 추가 후 전체 200개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. JSON 전후 비교로 스토리 42문항만 변경됨(내용 변경 28개),
+  보기 문구 수정은 Q76·77·174·305·309·350뿐이며 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  근거 기록 434개·변동형 286개와 양쪽 README 수량 일치. 분대 표식 표현을 다듬은 뒤
+  문항 테스트 79개·형식 검사를 재실행했다. 600회 세션 추출 검사는 전체 테스트에 포함된다.
+  별도 임시 DB 부하 검사는 이번 차수에 로컬 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,

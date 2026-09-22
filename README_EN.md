@@ -365,7 +365,11 @@ Another 23 hideout/basic-system questions were cross-checked. Hall of Fame bonus
 Class 0 carriers, original maximum armor durability, and edition/faction exceptions were clarified.
 All 29 hideout questions now have source records, not completed live-client validation. The minimap
 and kill-feed questions remain unverified because direct evidence of the current base-game UI is lacking.
-Of 464 questions, **284 are `volatile`**; **392 questions have source/date records**.
+All 42 story questions were cross-checked, with content changes to 28. Release history and faction
+voice descriptions were corrected. Individual objectives are distinguished from chapter completion,
+ending narratives from route requirements, and wiki speculation from confirmed lore. Source records
+for all story questions do not establish live verification of every branch or game mode.
+Of 464 questions, **286 are `volatile`**; **434 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
