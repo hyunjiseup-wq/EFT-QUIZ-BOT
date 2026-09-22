@@ -215,6 +215,10 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 
 ## Large-event protection
 
+- Transient channel-lookup HTTP failures suppress requests for that channel for 30 seconds;
+  the next lookup after that interval retries. Reconnection or a recovered gateway cache clears
+  the delay. Forbidden (403) and missing (404) channels remain suppressed until cache recovery
+  or reconnection. This recovers subsequent lookups; it does not replay failed spectator logs.
 - SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
   much less likely to fail with `database is locked` under bursts.
 - SQLite `user_version` tracks the database schema (currently v2). If a database is newer than

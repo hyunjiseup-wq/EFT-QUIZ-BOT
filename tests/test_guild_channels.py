@@ -44,6 +44,112 @@ class GuildChannelLookupTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         guild_channels.forget_unresolvable_channels()
 
+    def tearDown(self):
+        guild_channels.forget_unresolvable_channels()
+
+    async def test_http_failure_recovers_after_cooldown_without_reconnect(self):
+        recovered = fake_channel(10, 20)
+        for status in (429, 500, 502, 503):
+            with self.subTest(status=status):
+                guild_channels.forget_unresolvable_channels()
+                client = SimpleNamespace(
+                    get_channel=Mock(return_value=None),
+                    fetch_channel=AsyncMock(side_effect=[
+                        discord.HTTPException(Mock(status=status, reason="temporary"), "retry"),
+                        recovered,
+                    ]),
+                )
+                logger = Mock()
+                with patch("guild_channels.time.monotonic", return_value=100.0) as clock:
+                    self.assertIsNone(await guild_channels.resolve_channel(
+                        client, 20, logger, label="감독"
+                    ))
+                    clock.return_value = 129.99
+                    for _ in range(10):
+                        self.assertIsNone(await guild_channels.resolve_channel(
+                            client, 20, logger, label="감독"
+                        ))
+                    client.fetch_channel.assert_awaited_once()
+                    logger.warning.assert_called_once()
+                    clock.return_value = 130.0
+                    self.assertIs(await guild_channels.resolve_channel(
+                        client, 20, logger, label="감독"
+                    ), recovered)
+                self.assertEqual(client.fetch_channel.await_count, 2)
+                self.assertNotIn(20, guild_channels._transient_retry_after)
+
+    async def test_forbidden_remains_suppressed_until_failure_cache_is_cleared(self):
+        recovered = fake_channel(10, 20)
+        client = SimpleNamespace(
+            get_channel=Mock(return_value=None),
+            fetch_channel=AsyncMock(side_effect=[
+                discord.Forbidden(Mock(status=403, reason="Forbidden"), "denied"),
+                recovered,
+            ]),
+        )
+        with patch("guild_channels.time.monotonic", return_value=100.0) as clock:
+            self.assertIsNone(await guild_channels.resolve_channel(
+                client, 20, Mock(), label="감독"
+            ))
+            clock.return_value = 1000.0
+            self.assertIsNone(await guild_channels.resolve_channel(
+                client, 20, Mock(), label="감독"
+            ))
+            client.fetch_channel.assert_awaited_once()
+            guild_channels.forget_unresolvable_channels()
+            self.assertIs(await guild_channels.resolve_channel(
+                client, 20, Mock(), label="감독"
+            ), recovered)
+
+    async def test_gateway_cached_channel_overrides_http_cooldown(self):
+        recovered = fake_channel(10, 20)
+        client = SimpleNamespace(
+            get_channel=Mock(return_value=None),
+            fetch_channel=AsyncMock(side_effect=discord.HTTPException(
+                Mock(status=503, reason="Unavailable"), "retry"
+            )),
+        )
+        with patch("guild_channels.time.monotonic", return_value=100.0):
+            await guild_channels.resolve_channel(client, 20, Mock(), label="감독")
+            client.get_channel.return_value = recovered
+            self.assertIs(await guild_channels.resolve_channel(
+                client, 20, Mock(), label="감독"
+            ), recovered)
+        client.fetch_channel.assert_awaited_once()
+        self.assertNotIn(20, guild_channels._transient_retry_after)
+
+    async def test_reconnect_clears_transient_cooldown(self):
+        recovered = fake_channel(10, 20)
+        client = SimpleNamespace(
+            get_channel=Mock(return_value=None),
+            fetch_channel=AsyncMock(side_effect=[
+                discord.HTTPException(Mock(status=502, reason="Unavailable"), "retry"),
+                recovered,
+            ]),
+        )
+        with patch("guild_channels.time.monotonic", return_value=100.0):
+            await guild_channels.resolve_channel(client, 20, Mock(), label="감독")
+            guild_channels.forget_unresolvable_channels()
+            self.assertIs(await guild_channels.resolve_channel(
+                client, 20, Mock(), label="감독"
+            ), recovered)
+
+    async def test_cooling_channel_does_not_block_another_guild_lookup(self):
+        recovered = fake_channel(11, 21)
+        client = SimpleNamespace(
+            get_channel=Mock(return_value=None),
+            fetch_channel=AsyncMock(side_effect=[
+                discord.HTTPException(Mock(status=502, reason="Unavailable"), "retry"),
+                recovered,
+            ]),
+        )
+        with patch("guild_channels.time.monotonic", return_value=100.0):
+            await guild_channels.resolve_channel(client, 20, Mock(), label="감독")
+            self.assertIs(await guild_channels.fetch_guild_channel(
+                client, (20, 21), 11, Mock(), label="감독"
+            ), recovered)
+        self.assertEqual([call.args[0] for call in client.fetch_channel.await_args_list], [20, 21])
+
     def test_guild_channel_id_picks_the_channel_of_that_guild(self):
         client = SimpleNamespace(
             get_channel=Mock(
