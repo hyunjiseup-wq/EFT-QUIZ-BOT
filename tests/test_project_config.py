@@ -34,9 +34,8 @@ class ProjectConfigTests(unittest.TestCase):
         self.assertRegex(workflow, r"(?m)^  pull_request:$")
 
     def test_readme_question_counts_match_question_bank(self):
-        total_questions = len(
-            json.loads((ROOT / "questions.json").read_text(encoding="utf-8"))
-        )
+        questions = json.loads((ROOT / "questions.json").read_text(encoding="utf-8"))
+        total_questions = len(questions)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         readme_en = (ROOT / "README_EN.md").read_text(encoding="utf-8")
 
@@ -49,6 +48,62 @@ class ProjectConfigTests(unittest.TestCase):
         )
         self.assertEqual(int(korean_match.group(1).replace(",", "")), total_questions)
         self.assertEqual(int(english_match.group(1).replace(",", "")), total_questions)
+
+        mode_counts = {
+            mode: sum(question.get("mode", "common") == mode for question in questions)
+            for mode in ("common", "pvp", "pve")
+        }
+        self.assertIn(
+            f"공통 {mode_counts['common']} · PvP 전용 {mode_counts['pvp']} · "
+            f"PvE 전용 {mode_counts['pve']}",
+            readme,
+        )
+        self.assertIn(
+            f"{mode_counts['common']} common · {mode_counts['pvp']} PvP-only · "
+            f"{mode_counts['pve']} PvE-only",
+            readme_en,
+        )
+        for mode in ("pvp", "pve"):
+            playable = sum(
+                question.get("enabled", True) is True
+                and question.get("mode", "common") in {"common", mode}
+                for question in questions
+            )
+            label = "PvP" if mode == "pvp" else "PvE"
+            self.assertIn(f"{label} {playable}문제", readme)
+            self.assertIn(f"{label} {playable} (`common+{mode}`)", readme_en)
+        enabled = sum(q.get("enabled", True) is True for q in questions)
+        disabled = total_questions - enabled
+        self.assertIn(f"활성 {enabled} · 출제 보류 {disabled}", readme)
+        self.assertIn(f"{enabled} active · {disabled} on hold", readme_en)
+
+    def test_readmes_report_review_coverage_without_claiming_full_verification(self):
+        questions = json.loads((ROOT / "questions.json").read_text(encoding="utf-8"))
+        volatile = sum(bool(q.get("volatile")) for q in questions)
+        reviewed = sum(bool(q.get("reviewed_at") and q.get("sources")) for q in questions)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme_en = (ROOT / "README_EN.md").read_text(encoding="utf-8")
+        self.assertIn(f"**{volatile}문제가 `volatile`**", readme)
+        self.assertIn(f"**근거·검토일 기록은 {reviewed}문항**", readme)
+        self.assertIn(f"**{volatile} are `volatile`**", readme_en)
+        self.assertIn(f"**{reviewed} questions have source/date records**", readme_en)
+        for contents in (readme, readme_en):
+            for link in re.findall(r"\]\((docs/[^)]+)\)", contents):
+                self.assertTrue((ROOT / link).is_file(), f"문서 링크 누락: {link}")
+
+    def test_readmes_list_every_registered_slash_command(self):
+        bot_source = (ROOT / "bot.py").read_text(encoding="utf-8")
+        command_names = re.findall(
+            r"@bot\.tree\.command\(\s*name=\"([^\"]+)\"",
+            bot_source,
+        )
+        self.assertEqual(len(command_names), 14)
+
+        for readme_name in ("README.md", "README_EN.md"):
+            contents = (ROOT / readme_name).read_text(encoding="utf-8")
+            with self.subTest(readme=readme_name):
+                missing = [name for name in command_names if f"`/{name}" not in contents]
+                self.assertEqual(missing, [], f"명령어 목록에서 누락됨: {missing}")
 
     def test_readme_file_trees_include_all_python_modules_and_tests(self):
         readmes = {
