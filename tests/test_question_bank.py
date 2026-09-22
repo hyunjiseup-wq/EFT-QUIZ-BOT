@@ -10,6 +10,7 @@ from question_bank import (
     filter_questions_for_mode,
     group_by_difficulty,
     load_questions,
+    load_validated_questions,
     select_session_questions,
     validate_questions,
 )
@@ -40,6 +41,8 @@ class QuestionBankTests(unittest.TestCase):
                     selected = select_session_questions(pool, SESSION_COUNTS, rng=rng)
                     self.assertEqual(len(selected), total)
                     self.assertEqual(len({q["id"] for q in selected}), total)
+                    self.assertTrue(all(q.get("enabled", True) is True for q in selected))
+                    self.assertTrue({95, 102, 225, 226}.isdisjoint(q["id"] for q in selected))
                     self.assertTrue(
                         all(q.get("mode", "common") in {"common", mode} for q in selected)
                     )
@@ -1326,6 +1329,81 @@ class QuestionBankTests(unittest.TestCase):
                 self.assertIn("실측 검증은 아님", question["volatile_note"])
                 self.assertEqual(question["answer"], 0)
         self.assertIn("독립 검증 근거는 아님", questions[442]["volatile_note"])
+
+    def test_disabled_questions_default_on_and_require_an_explicit_boolean(self):
+        for value in (None, 0, 1, "true", "false", [], {}):
+            with self.subTest(value=value):
+                question = {**make_question(1), "enabled": value}
+                errors = validate_questions([question], {"general": 1})
+                self.assertTrue(any("enabled" in error for error in errors))
+        self.assertEqual(validate_questions([make_question(1)], {"general": 1}), [])
+        question = {**make_question(1), "enabled": True}
+        self.assertEqual(validate_questions([question], {"general": 1}), [])
+
+    def test_disabled_questions_require_a_nonempty_reason(self):
+        for reason in (None, "", "  ", 3, False):
+            with self.subTest(reason=reason):
+                disabled = {**make_question(2), "enabled": False, "disabled_reason": reason}
+                errors = validate_questions([make_question(1), disabled], {"general": 1})
+                self.assertTrue(any("disabled_reason" in error for error in errors))
+
+    def test_disabled_questions_are_still_validated_for_structure_and_ids(self):
+        disabled = {
+            **make_question(1), "enabled": False, "disabled_reason": "재검증 필요", "answer": 9,
+        }
+        errors = validate_questions([make_question(1), disabled], {"general": 1})
+        self.assertTrue(any("중복된 id" in error for error in errors))
+        self.assertTrue(any("answer" in error for error in errors))
+
+    def test_disabled_questions_do_not_satisfy_mode_difficulty_minimums(self):
+        questions = [
+            make_question(1),
+            {**make_question(2), "mode": "pvp"},
+            {**make_question(3), "mode": "pve", "enabled": False, "disabled_reason": "보류"},
+        ]
+        errors = validate_questions(questions, {"general": 2})
+        self.assertTrue(any("PVE 모드 난이도 'general' 문제 부족" in e for e in errors))
+        self.assertFalse(any("PVP 모드" in e for e in errors))
+        self.assertFalse(any(e.startswith("난이도 'general'") for e in errors))
+
+    def test_disabled_questions_do_not_satisfy_global_difficulty_minimums(self):
+        disabled = {**make_question(1), "enabled": False, "disabled_reason": "보류"}
+        errors = validate_questions([disabled], {"general": 1})
+        self.assertTrue(any(e.startswith("난이도 'general' 문제 부족: 0개") for e in errors))
+
+    def test_every_selection_entry_point_excludes_disabled_but_not_volatile_questions(self):
+        active = {**make_question(1), "volatile": True, "volatile_note": "변경 가능"}
+        disabled = {**make_question(2), "enabled": False, "disabled_reason": "보류"}
+        questions = [active, disabled]
+        for mode in ("pvp", "pve"):
+            self.assertEqual(filter_questions_for_mode(questions, mode), [active])
+        self.assertEqual(group_by_difficulty(questions), {"general": [active]})
+        self.assertEqual(
+            select_session_questions({"general": questions}, {"general": 1}), [active],
+        )
+        with self.assertRaises(QuestionDataError):
+            select_session_questions({"general": [disabled]}, {"general": 1})
+
+    def test_validated_loader_keeps_archives_out_of_the_runtime_bank(self):
+        active = make_question(1)
+        disabled = {**make_question(2), "enabled": False, "disabled_reason": "보류"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            path.write_text(json.dumps([active, disabled]), encoding="utf-8")
+            self.assertEqual(load_questions(path), [active, disabled])
+            self.assertEqual(load_validated_questions(path, {"general": 1}), [active])
+
+    def test_unverified_questions_are_archived_without_claiming_new_sources(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        disabled = [q for q in questions if q.get("enabled") is False]
+        self.assertEqual({q["id"] for q in disabled}, {95, 102, 225, 226})
+        for question in disabled:
+            self.assertTrue(question["disabled_reason"])
+            self.assertNotIn("reviewed_at", question)
+            self.assertNotIn("sources", question)
+        self.assertEqual(len(questions), 464)
+        self.assertEqual(len(filter_questions_for_mode(questions, "pvp")), 458)
+        self.assertEqual(len(filter_questions_for_mode(questions, "pve")), 447)
 
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)

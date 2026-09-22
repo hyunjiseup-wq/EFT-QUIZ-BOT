@@ -4,7 +4,8 @@
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
 It uses a 4-choice button UI, and `questions.json` currently holds **464 questions**.
-Each session randomly draws **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from that pool per difficulty
+Four questions are on hold, leaving 460 active questions. Each session randomly draws
+**General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from the active pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
 
@@ -15,7 +16,8 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 | Item | Current value |
 |---|---|
 | Question bank | 464 total — 449 common · 13 PvP-only · 2 PvE-only |
-| Playable pools | PvP 462 (`common+pvp`) · PvE 451 (`common+pve`) |
+| Question status | 460 active · 4 on hold (Q95, Q102, Q225, Q226) |
+| Playable pools | PvP 458 (`common+pvp`) · PvE 447 (`common+pve`) — active questions only |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -191,6 +193,7 @@ tarkov_quiz_bot/
 │   ├── test_load_test.py      # Synthetic-load isolation and aggregation tests
 │   ├── test_operations_check.py # DB, channel, and dashboard-status tests
 │   ├── test_bot.py            # Discord UI, dashboard, and response-flow tests
+│   ├── test_check_questions.py # Held-question CLI, count, and answer-label tests
 │   ├── test_quiz_completion.py # Completion, storage-failure, and cleanup tests
 │   ├── test_quiz_lifecycle.py # Start, give-up, and concurrent-session tests
 │   ├── test_database.py       # DB migration, ranking, and reward-stat tests
@@ -273,6 +276,14 @@ bosses/AI · traders · weapons · ammo · gear · medical/food · hideout · sk
 `python check_questions.py` shows the question count per category, and
 `python check_questions.py --category 탄약` (for example) lists questions in a specific category.
 
+`enabled` defaults to `true`. Set `"enabled": false` with a nonempty `disabled_reason` to keep the
+original question and ID while excluding it from both playable pools. Use
+`python check_questions.py --disabled` to list held questions and reasons. Only JSON booleans are
+accepted, not strings such as `"false"` or numbers such as `0`. Held questions are still structurally
+validated, but difficulty minimums count active questions only. After obtaining evidence and reviewing
+the question, choices, and explanation, set `enabled` to `true` or remove it to restore eligibility.
+Dashboard pool totals count active questions, not every archived record in the JSON file.
+
 After adding or editing questions, run `python check_questions.py` to validate format (4 choices,
 answer index, duplicates, category names, etc.). The bot only reads `questions.json` at startup,
 so **you need to restart the bot after editing.** The bot runs the same validation on startup and
@@ -311,7 +322,7 @@ effect on bot behavior).
 
 When a game patch drops:
 
-1. `python check_questions.py --volatile` — lists volatile questions and their current answers
+1. `python check_questions.py --volatile` — lists volatile questions, eligibility, and recorded answers
 2. Cross-check against patch notes/wiki and update the `choices` / `answer` / `explanation` of any question whose answer changed
 3. Run `python check_questions.py` to validate format, then restart the bot
 
@@ -375,7 +386,9 @@ Raider spawns. Boss lists do not guarantee simultaneous spawns in every raid. Si
 questions were subsequently checked against public tables. Base PMC duration is distinguished from
 remaining time, and matching caps from actual populations. Q441 and Q446 now belong only to the PvP
 pool, not the PvE co-op/AI population context. Conflicting Interchange and night Factory capacity values
-remain unresolved. Two minimap/kill-feed and two trader buyback questions still lack source records.
+remain unresolved. Two minimap/kill-feed and two trader buyback questions still lack reliable current
+answer evidence. Q95, Q102, Q225, and Q226 are now on hold; their original text is archived and is not
+marked verified. `volatile` remains an advisory flag; only `enabled: false` excludes a question.
 Of 464 questions, **290 are `volatile`**; **460 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 

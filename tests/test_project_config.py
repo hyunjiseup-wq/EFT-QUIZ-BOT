@@ -64,10 +64,18 @@ class ProjectConfigTests(unittest.TestCase):
             readme_en,
         )
         for mode in ("pvp", "pve"):
-            playable = mode_counts["common"] + mode_counts[mode]
+            playable = sum(
+                question.get("enabled", True) is True
+                and question.get("mode", "common") in {"common", mode}
+                for question in questions
+            )
             label = "PvP" if mode == "pvp" else "PvE"
             self.assertIn(f"{label} {playable}문제", readme)
             self.assertIn(f"{label} {playable} (`common+{mode}`)", readme_en)
+        enabled = sum(q.get("enabled", True) is True for q in questions)
+        disabled = total_questions - enabled
+        self.assertIn(f"활성 {enabled} · 출제 보류 {disabled}", readme)
+        self.assertIn(f"{enabled} active · {disabled} on hold", readme_en)
 
     def test_readmes_report_review_coverage_without_claiming_full_verification(self):
         questions = json.loads((ROOT / "questions.json").read_text(encoding="utf-8"))

@@ -65,6 +65,11 @@ def load_questions(path: str | Path) -> list[dict]:
     return questions
 
 
+def is_question_enabled(question: Mapping) -> bool:
+    """생략된 enabled는 활성으로 취급하고, 명시된 값은 True만 허용한다."""
+    return question.get("enabled", True) is True
+
+
 def validate_questions(questions: Sequence[object], session_counts: Mapping[str, int]) -> list[str]:
     """문제 형식과 출제 가능한 문제 수를 검사하고 오류 목록을 반환한다."""
     errors: list[str] = []
@@ -89,6 +94,16 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         qid = question.get("id")
         label = f"id {qid}" if qid is not None else f"{position}번째 항목"
 
+        enabled = question.get("enabled", True)
+        if not isinstance(enabled, bool):
+            errors.append(f"{label}: enabled는 true 또는 false여야 함")
+        if enabled is False:
+            reason = question.get("disabled_reason")
+            if not isinstance(reason, str) or not reason.strip():
+                errors.append(
+                    f"{label}: 출제 보류 문제에는 비어 있지 않은 disabled_reason이 필요함"
+                )
+
         missing = [field for field in REQUIRED_FIELDS if field not in question]
         if missing:
             errors.append(f"{label}: 필수 필드 누락 ({', '.join(missing)})")
@@ -111,7 +126,7 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         difficulty = question.get("difficulty")
         if difficulty not in session_counts:
             errors.append(f"{label}: 알 수 없는 난이도 '{difficulty}'")
-        else:
+        elif is_question_enabled(question):
             difficulty_counts[difficulty] += 1
 
         mode = question.get("mode", "common")
@@ -202,6 +217,8 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         for raw_question in questions:
             if not isinstance(raw_question, dict):
                 continue
+            if not is_question_enabled(raw_question):
+                continue
             if raw_question.get("mode", "common") not in {"common", mode}:
                 continue
             difficulty = raw_question.get("difficulty")
@@ -224,17 +241,19 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
 
 
 def load_validated_questions(path: str | Path, session_counts: Mapping[str, int]) -> list[dict]:
-    """문제를 불러와 검증하고, 오류가 있으면 봇 시작을 중단한다."""
+    """보류 문항까지 검증한 뒤 활성 문항만 반환하며, 오류가 있으면 시작을 중단한다."""
     questions = load_questions(path)
     errors = validate_questions(questions, session_counts)
     if errors:
         raise QuestionDataError(errors)
-    return questions
+    return [question for question in questions if is_question_enabled(question)]
 
 
 def group_by_difficulty(questions: Sequence[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
     for question in questions:
+        if not is_question_enabled(question):
+            continue
         grouped.setdefault(question["difficulty"], []).append(question)
     return grouped
 
@@ -243,13 +262,14 @@ def filter_questions_for_mode(
     questions: Sequence[dict],
     mode: str,
 ) -> list[dict]:
-    """공통 문제와 요청한 게임 모드 전용 문제만 반환한다."""
+    """활성 문항 중 공통 문제와 요청한 게임 모드 전용 문제만 반환한다."""
     if mode not in {"pvp", "pve"}:
         raise ValueError("mode는 'pvp' 또는 'pve'여야 합니다.")
     return [
         question
         for question in questions
-        if question.get("mode", "common") in {"common", mode}
+        if is_question_enabled(question)
+        and question.get("mode", "common") in {"common", mode}
     ]
 
 
@@ -264,7 +284,11 @@ def select_session_questions(
     selected: list[dict] = []
 
     for difficulty, count in session_counts.items():
-        pool = questions_by_difficulty.get(difficulty, ())
+        pool = [
+            question
+            for question in questions_by_difficulty.get(difficulty, ())
+            if is_question_enabled(question)
+        ]
         if len(pool) < count:
             raise QuestionDataError(
                 [f"난이도 '{difficulty}' 문제 부족: {len(pool)}개/필요 {count}개"]
