@@ -333,7 +333,8 @@ All 44 medical/provision, 33 gear, and 53 weapon questions have source records, 
 Another 19 ammunition questions distinguish penetration probability/blunt damage and base/actual damage.
 Comparisons now specify their choices and projectile scope; numeric checks used indexed wiki copies, not live measurements.
 A further 25 ammunition questions had their answers, option values, and explanations cross-checked and scoped.
-45 of 46 ammunition questions now have source records; Q369's starting T-45M1 sale condition and live values remain unverified.
+All 46 ammunition questions now have source records. A further check of Q369 supports Prapor LL1
+sales, distinct from unlocking the trader. Prices, purchase limits, and live ammunition values need separate checks.
 Another 22 basic-system/season questions clarify LEDX's purpose, faction selection, separate PMC/Scav
 characters, and death/MIA protection exceptions. Seasonal rewards mean unlocked trader offers, not transfer of all gear.
 Another 35 trader/basic-quest questions clarify Prapor's Tour unlock, Jaeger's Introduction unlock,
@@ -344,11 +345,14 @@ Another 11 quest questions were reviewed. Debut now uses its 1.1 target maps wit
 handover, and the renamed The Tarkov Import includes its required equipment and maps.
 The double-barrel requirement for Cultist kills and room 118 key usage were clarified. Conflicting
 kill counts, faction-specific Drip-Out counts, and the Prestige event rollback remain unresolved.
+Eight event/unlock questions were also updated. Six Blackout questions explicitly ask about July 2026
+records, separating direct key use from entering an already-open room. Collector names the seven
+LL4 traders and the separate Fence reputation requirement, not a verified complete unlock checklist.
 Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **252 are `volatile`**; **334 questions have source/date records**.
+Of 464 questions, **252 are `volatile`**; **342 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

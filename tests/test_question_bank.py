@@ -896,6 +896,64 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("진영별 최신 수량 확인은 보류", questions[321]["volatile_note"])
         self.assertIn("원복 시점", questions[323]["volatile_note"])
 
+    def test_blackout_review_scopes_event_history_and_direct_door_unlock(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (360, 361, 362, 363, 371, 372):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertIn("2026년 7월", q["question"])
+                self.assertNotIn("약 1개월", q["volatile_note"])
+                self.assertNotIn("복귀하므로", q["volatile_note"])
+        self.assertIn("직접 열 때", questions[361]["question"])
+        self.assertIn("Wedge", questions[361]["explanation"])
+        self.assertIn("이미 문을 열었다면", questions[361]["explanation"])
+        self.assertIn("기본 루블 보상", questions[363]["explanation"])
+        self.assertNotIn("의류는 시즌 1 보상", questions[363]["explanation"])
+        for qid, mode, duration in ((371, "pvp", "30분"), (372, "pve", "35분")):
+            self.assertEqual(questions[qid]["mode"], mode)
+            self.assertEqual(questions[qid]["choices"][questions[qid]["answer"]], duration)
+            self.assertIn("밸런스 조정 공지", questions[qid]["question"])
+            self.assertIn("현재 상시 제한 시간", questions[qid]["explanation"])
+
+    def test_collector_and_ammo_review_distinguishes_trader_unlock_conditions(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        collector = questions[367]
+        answer = collector["choices"][collector["answer"]]
+        self.assertIn("7명", answer)
+        self.assertIn("평판 3.0", answer)
+        self.assertNotIn("모든 상인", answer)
+        for trader in (
+            "Prapor", "Therapist", "Skier", "Peacekeeper", "Mechanic", "Ragman", "Jaeger"
+        ):
+            self.assertIn(trader, collector["explanation"])
+        self.assertIn("다른 해금 조건", collector["explanation"])
+        self.assertIn("프라포르 LL1", questions[369]["question"])
+        self.assertIn("프라포르를 해금", questions[369]["explanation"])
+        self.assertNotIn("게임 시작 시점부터", questions[369]["question"])
+
+    def test_seventeenth_review_batch_preserves_modes_and_marks_evidence_limits(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (360, 361, 362, 363, 367, 369, 371, 372):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["volatile"])
+                self.assertEqual(q["answer"], 0)
+                expected_mode = {371: "pvp", 372: "pve"}.get(qid, "common")
+                self.assertEqual(q.get("mode", "common"), expected_mode)
+        self.assertIn("확정 보류", questions[367]["volatile_note"])
+        self.assertIn("실측 검증은 아님", questions[369]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
