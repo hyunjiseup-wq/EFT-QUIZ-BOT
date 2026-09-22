@@ -33,9 +33,11 @@
   7문항은 문제·보기·해설을 유지한 채 근거를 기록했다.
 - 15차: `8ae586f` 이후 상인·기초 퀘스트 35문항 대조. 16문항의 내용을 보완하고
   19문항은 문제·보기·해설을 유지한 채 근거를 기록했다.
-- 근거를 기록한 문항: 323개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22 + 15차 35).
-  그 외 141개를 확인 완료로 표시하지 않는다.
-- `volatile`: 251개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개, 15차 4개 추가). 이 표시는 **출제 제외가 아니다**.
+- 16차: `977725a` 이후 퀘스트 11문항 대조. 8문항의 내용을 수정하고
+  3문항(Q316·319·320)은 문제·보기·해설을 유지한 채 근거·한계를 기록했다.
+- 근거를 기록한 문항: 334개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22 + 15차 35 + 16차 11).
+  그 외 130개를 확인 완료로 표시하지 않는다. 근거가 있는 문항도 충돌·미확인 사항이 남는다.
+- `volatile`: 252개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개, 15차 4개, 16차 1개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -510,7 +512,8 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
   퀘스트에 쓰이는 모든 루팅 아이템이 거래 불가인 것은 아니다.
   [퀘스트 아이템 규칙](https://escapefromtarkov.fandom.com/wiki/Quests).
 - Q42·126·127: 영구 프로필 보험·예거 보험의 상대적 특징·The Lab 반환 제외를 대조했다.
-  공식 노트에 없는 ‘수 시간’ 단정은 제거했다. [1.1.0 노트](https://telegra.ph/Patch-1100-08-03),
+  배포 노트에 없는 ‘수 시간’ 단정은 제거했다. 사전 예고에는 해당 표현이 있었다(16차 정정 참고).
+  [1.1.0 노트](https://telegra.ph/Patch-1100-08-03),
   [보험](https://escapefromtarkov.fandom.com/wiki/Insurance).
 - Q53·54·87·89·91·167·223·224·227·291·292: 상인별 통화·취급품·소재지·신원을 대조했다.
   [Peacekeeper](https://escapefromtarkov.fandom.com/wiki/Peacekeeper), [Skier](https://escapefromtarkov.fandom.com/wiki/Skier),
@@ -529,6 +532,68 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
 1.1.0 노트와 충돌하므로 채택하지 않았다. Q27·68·75·127에 `volatile`을 추가했다.
 상인 33문항 중 31문항에 근거가 기록됐지만 Q225·226 매입 배율의 최신성은 미확인이다.
 이번 기록 역시 최신 게임 화면으로 실제 거래·해금을 수행했다는 뜻은 아니다.
+
+## 16차 — 퀘스트 개편·지정 무기·열쇠 용도
+
+대상: Q154·209·310·311·315·316·317·319·320·321·323(11문항).
+문항 수·정답 인덱스·난이도·모드·카테고리는 유지하고 Q154에 `volatile`을 추가했다.
+
+- Q154: 엡실론 보상 단계를 The Punisher - Part 6으로 명시했다.
+  [영문 위키](https://escapefromtarkov.fandom.com/wiki/The_Punisher_-_Part_6)와
+  [일본어 위키의 Ver 1.1 보상 목록](https://wikiwiki.jp/eft/Prapor/The%20Punisher%20-%20Part%206)을 대조했다.
+- Q209: 모든 퀘스트에서 사용하지 않는다는 부정 명제를 세 목표 방의 열쇠 구분으로 한정했다.
+  118호 열쇠는 루팅 방을 열기 때문에 ‘쓰이는 곳이 없다’는 해설을 제거했다.
+  [110호](https://escapefromtarkov.fandom.com/wiki/Dorm_room_110_key),
+  [114호](https://escapefromtarkov.fandom.com/wiki/Dorm_room_114_key),
+  [203호 목표](https://escapefromtarkov.fandom.com/wiki/Shaking_Up_the_Teller),
+  [118호](https://escapefromtarkov.fandom.com/wiki/Dorm_room_118_key),
+  [최근 Pharmacist 목표](https://tarkov.help/en/quest/pharmacist).
+- Q310·316: Shooting Cans의 고정 화기·Ground Zero 목표를 대조했다. Q310은 ‘가장 첫 번째’
+  대신 퀘스트 목표로 식별하도록 바꿨다. 1.1 배포 노트는 LL별 묶음 배포와 일부 체인 유지를
+  설명하므로 오래된 선후행 목록을 그대로 현행 순서로 확정하지 않는다.
+  [Shooting Cans](https://tarkov.help/en/quest/shooting-cans),
+  [배포 노트](https://telegra.ph/Patch-1100-08-03).
+- Q311: 1.1 Debut 목표는 지정된 네 맵에서 스캐브 합계 5명 처치다. 옛 MP-133 2정 제출을
+  정답에서 제거했다. [일본어 위키 Ver 1.1](https://wikiwiki.jp/eft/Prapor/Debut),
+  [Tarkov.help 목표 목록](https://tarkov.help/en/quest/debut),
+  [TarkovHead 목표·가이드](https://www.tarkovhead.com/en/quest/regular/debut)가 일치한다.
+  오래된 영문 위키와 6개월 전 PvE 검색 수집본에는 구 목표가 남아 있다. 이 시점 차이를
+  현재 PvP/PvE의 목표 차이라고 단정해 모드를 분리하지 않았다.
+- Q315: 최근 자료의 The Tarkov Import 명칭을 반영하고 이전 이름도 병기했다.
+  SR-25·Hybrid 46·PM II 1-8x24 조합과 Lighthouse/Reserve 조건을 반영했다.
+  [Tarkov.help](https://tarkov.help/en/quest/test-drive-part-1),
+  [TarkovBox](https://www.tarkovbox.com/en/gamewiki/tasks/the-tarkov-import).
+  처치 수는 [TarkovForge](https://tarkovforge.com/task-guide/the-tarkov-import)의 6명과
+  Tarkov.help의 10명이 충돌해 해설에서 제거하고 미확인으로 남겼다. 원래 질문은 무기 식별이다.
+- Q317: 컬티스트 처치에 필요한 MP-43-1C/소드오프 더블배럴 조건을 추가했다.
+  [위키](https://escapefromtarkov.fandom.com/wiki/Hell_on_Earth_-_Part_2),
+  [TarkovHead](https://www.tarkovhead.com/en/quest/regular/hell-on-earth-part-2),
+  [TarkovBox](https://www.tarkovbox.com/en/gamewiki/tasks/hell-on-earth-part-2).
+  위키의 3명과 [다른 집계의 2명](https://tarkovforge.web.app/task-guide/hell-on-earth-part-2)이
+  충돌하므로 대상·무기 조합을 묻는다. 수량을 검증 완료한 것으로 처리하지 않는다.
+- Q319·320: 로그 10명 및 Reserve 지하 지휘 벙커의 레이더 5명을 대조하고 내용을 유지했다.
+  [Outcasts](https://tarkov.help/en/quest/the-huntsman-path-outcasts),
+  [No Place for Renegades](https://tarkov.help/en/quest/no-place-for-renegades).
+  Outcasts는 문서 안에서도 인정 지역 표현이 섞이므로 전체 지역 목록 확정은 보류했다.
+- Q321: 로그 처치 외 FIR LBT 장비 제출도 있어 처치만으로 완료된다는 오해를 줄였다.
+  [위키](https://escapefromtarkov.fandom.com/wiki/Drip-Out_-_Part_2)와
+  [공략](https://tarkov.help/tu/quest/drip-out-part-2)의 100명·50개를 대조했다.
+  [USEC 집계](https://tarkovforge.com/task-guide/drip-out-part-2-usec)는 다른 수량을 표시한다.
+  해당 사이트의 단일 표기를 채택하지 않았으며, 진영별 최신 수량 검증은 완료가 아니다.
+- Q323: [Prestige 6 목록](https://escapefromtarkov.fandom.com/wiki/New_Beginning_%28Prestige_6%29)의
+  로그 100명 및 다른 목표를 대조했다. 불필요한 Prestige 4·5 비교를 제거하고
+  [공식 Blackout 한시 조정 공지](https://t.me/escapefromtarkovEN/6691)와 구분했다.
+  최신 모드별 목표와 이벤트 원복 시점 확인은 완료하지 않았다.
+
+**자료의 최신성 한계:** 최근 수집된 페이지에도 옛 위키 가이드와 새 목표가 함께 실려 있었다.
+수집일이 최근이라는 이유만으로 모든 문장을 채택하지 않았다. 공개 Tarkov API로 직접 대조하려고
+했으나 `GraphQL server unavailable` 응답으로 실패했다. 게임 클라이언트 실측은 하지 않았다.
+Q315·317은 불확실한 수량을 출제 내용에서 제거했지만 Q321·323의 수량은 검토 보류 상태로
+현재 풀에 남는다. 이 11개는 근거 기록 추가이지 전부 최신 정답 확정이라는 뜻이 아니다.
+
+**15차 보고 표현 정정:** 예거의 ‘수 시간’ 반환은 [공식 사전 예고](https://t.me/escapefromtarkovEN/6687)에
+있었다. 배포 노트에는 구체적 시간이 없으므로 현재 문항에서 빼는 것은 유지하지만,
+‘공식 근거가 전혀 없는 주장’으로 설명하면 잘못이다. 양쪽 README도 이 구분을 명시했다.
 
 ## 운영 문서와 실제 코드
 
@@ -552,6 +617,8 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
    Q164의 세부 조건도 여기에 포함한다.
    Q314의 ‘모든 맵’ 표현은 고쳤지만 최신 대상 맵·선행 조건까지 확인한 것은 아니다.
    3차의 Q151·163·312·318·322·324 보완도 세부 최신 수치의 실측 완료는 아니다.
+   16차에서 Q311의 구 목표와 Q315의 명칭을 보완했다. Q315·317의 처치 수량 충돌,
+   Q319의 인정 지역, Q321의 진영별 수량, Q323의 모드·이벤트 원복은 여전히 미확인이다.
 4. 탄약 수치, 의료·하이드아웃·스킬 수치, 맵 인원·시간 등 나머지 변동형 항목:
    `python check_questions.py --volatile`의 목록을 기준으로 계속 검증해야 한다.
 5. Q458(FAMAS G2): 공개 사실과 정식 출시·제원을 구분. 검토한 배포 노트만으로 출시 확정하지 않는다.
@@ -612,6 +679,10 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
   컴파일·`git diff --check` 통과. 근거 기록 323개·변동형 251개와 양쪽 README 수량 일치.
   JSON 전후 비교로 35문항만 변경됨(내용 변경 16개)과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
   보기 문장의 병렬 표현을 다듬은 뒤 해당 문항 테스트와 형식 검사를 재실행했다.
+  600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 로컬 재실행하지 않았다.
+- 16차는 회귀 테스트 3개 추가 후 전체 181개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 334개·변동형 252개와 양쪽 README 수량 일치.
+  JSON 전후 비교로 11문항만 변경됨(내용 변경 8개)과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
   600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 로컬 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.

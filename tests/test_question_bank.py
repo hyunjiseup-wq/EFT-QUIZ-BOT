@@ -836,6 +836,66 @@ class QuestionBankTests(unittest.TestCase):
             self.assertTrue(questions[qid]["volatile"])
             self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
 
+    def test_quest_review_updates_debut_and_renamed_sr25_task(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("우테스", questions[310]["question"])
+        self.assertNotIn("첫 번째", questions[310]["question"])
+        debut = questions[311]
+        self.assertIn("1.1", debut["question"])
+        self.assertIn("총 5명", debut["choices"][debut["answer"]])
+        self.assertNotIn("MP-133", debut["choices"][debut["answer"]])
+        for location in ("우즈", "그라운드 제로", "인터체인지", "커스텀즈"):
+            self.assertIn(location, debut["choices"][debut["answer"]])
+        self.assertIn("이전 목표", debut["explanation"])
+        self.assertIn("The Tarkov Import", questions[315]["question"])
+        self.assertIn("Test Drive - Part 1", questions[315]["question"])
+        self.assertEqual(questions[315]["choices"][questions[315]["answer"]], "SR-25")
+        self.assertNotIn("10명", questions[315]["explanation"])
+        self.assertIn("수량 확정은 보류", questions[315]["volatile_note"])
+
+    def test_quest_review_bounds_key_usage_and_preserves_weapon_requirements(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("The Punisher - Part 6", questions[154]["explanation"])
+        for task in ("Accidental Witness", "Pharmacist", "Shaking Up the Teller"):
+            self.assertIn(task, questions[209]["question"])
+        self.assertIn("루팅 방", questions[209]["explanation"])
+        self.assertNotIn("쓰이는 곳이 없습니다", questions[209]["explanation"])
+        cultist = questions[317]
+        self.assertIn("무기의 조합", cultist["question"])
+        self.assertIn("더블배럴", cultist["choices"][cultist["answer"]])
+        self.assertIn("MP-43-1C", cultist["explanation"])
+        self.assertIn("소드오프", cultist["explanation"])
+        self.assertNotIn("3명", cultist["choices"][cultist["answer"]])
+        self.assertIn("수량 확정 보류", cultist["volatile_note"])
+        self.assertIn("LBT", questions[321]["explanation"])
+        self.assertIn("제출", questions[321]["explanation"])
+        self.assertIn("한시적", questions[323]["explanation"])
+
+    def test_sixteenth_review_batch_records_sources_without_claiming_live_validation(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (154, 209, 310, 311, 315, 316, 317, 319, 320, 321, 323)
+        for qid in qids:
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["volatile"])
+                self.assertIn("실측 검증은 아님", q["volatile_note"])
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+        self.assertIn("모드 차이로 단정하지 않음", questions[311]["volatile_note"])
+        self.assertIn("진영별 최신 수량 확인은 보류", questions[321]["volatile_note"])
+        self.assertIn("원복 시점", questions[323]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

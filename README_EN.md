@@ -338,12 +338,17 @@ Another 22 basic-system/season questions clarify LEDX's purpose, faction selecti
 characters, and death/MIA protection exceptions. Seasonal rewards mean unlocked trader offers, not transfer of all gear.
 Another 35 trader/basic-quest questions clarify Prapor's Tour unlock, Jaeger's Introduction unlock,
 loyalty levels versus reputation, and dedicated quest items versus ordinary handover items.
-Jaeger's insurance explanation no longer asserts a return time absent from the official patch notes.
+Jaeger's insurance explanation no longer asserts a return time absent from the released patch notes.
+A pre-release announcement did mention a couple of hours; this was not an entirely unsupported claim.
+Another 11 quest questions were reviewed. Debut now uses its 1.1 target maps without the old MP-133
+handover, and the renamed The Tarkov Import includes its required equipment and maps.
+The double-barrel requirement for Cultist kills and room 118 key usage were clarified. Conflicting
+kill counts, faction-specific Drip-Out counts, and the Prestige event rollback remain unresolved.
 Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **251 are `volatile`**; **323 questions have source/date records**.
+Of 464 questions, **252 are `volatile`**; **334 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
