@@ -686,6 +686,55 @@ class QuestionBankTests(unittest.TestCase):
                     self.assertIn("검색 수집본", questions[qid]["volatile_note"])
                     self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
 
+    def test_ammo_review_removes_universal_damage_and_caliber_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertNotIn("방탄복에는 무력", questions[179]["explanation"])
+        self.assertIn("모든 방어구", questions[179]["explanation"])
+        self.assertNotIn("관통형 탄일수록", questions[181]["explanation"])
+        self.assertIn("항상 반비례하는 것은 아닙니다", questions[181]["explanation"])
+        self.assertIn("7N40", questions[181]["explanation"])
+        self.assertIn("구경의 크기만으로", questions[326]["explanation"])
+        self.assertIn("처치 성능 순위를 뜻하지는 않습니다", questions[327]["explanation"])
+
+    def test_ammo_numeric_and_runner_up_questions_preserve_answer_meanings(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid, answer in ((325, "QuakeMaker"), (328, "44"), (341, "75")):
+            self.assertEqual(questions[qid]["choices"][questions[qid]["answer"]], answer)
+        self.assertIn("두 번째", questions[325]["question"])
+        self.assertIn("RIP 102 > QuakeMaker 85", questions[325]["explanation"])
+        self.assertIn("기본 관통력", questions[328]["question"])
+        self.assertIn("기본 육체 피해량", questions[341]["question"])
+        self.assertIn("실제 명중 피해와는 구분", questions[341]["explanation"])
+
+    def test_thirteenth_review_batch_records_ammo_values_as_indexed_not_live(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            178, 179, 180, 181, 182, 183, 184, 185, 189, 190, 191, 192, 193,
+            195, 196, 197, 198, 201, 279, 285, 325, 326, 327, 328, 341,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertIn("기본", q["question"])
+                if qid not in (328, 341):
+                    self.assertIn("보기", q["question"])
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["volatile"])
+                self.assertIn("검색 수집본", q["volatile_note"])
+                self.assertIn("실측 검증은 아님", q["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
