@@ -537,6 +537,60 @@ class QuestionBankTests(unittest.TestCase):
             self.assertIn("검색 수집본", questions[qid]["volatile_note"])
             self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
 
+    def test_shotgun_ammunition_question_excludes_mp18_classification_ambiguity(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        question = questions[125]
+        self.assertIn("MP-133", question["question"])
+        self.assertEqual(question["choices"][question["answer"]], "12/70 벅샷")
+        self.assertIn("MP-18은 7.62x54mmR", question["explanation"])
+        self.assertIn("게임에서 산탄총으로 분류", questions[281]["question"])
+
+    def test_weapon_caliber_questions_bound_game_models_and_release_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (263, 277, 283, 284, 334):
+            self.assertIn("게임", questions[qid]["question"])
+        self.assertNotIn("게임에 없는 구경", questions[284]["explanation"])
+        self.assertIn("총기의 사용 탄약", questions[278]["explanation"])
+        self.assertIn("별도 탄약", questions[276]["explanation"])
+        self.assertIn("공식 Telegram", questions[458]["question"])
+        self.assertIn("8월 10일(UTC)", questions[458]["question"])
+        self.assertIn("한국시간으로는 8월 11일", questions[458]["explanation"])
+        self.assertIn("정식 출시를 확정하지 않습니다", questions[458]["explanation"])
+        self.assertIn("https://t.me/escapefromtarkovEN/6745", questions[458]["sources"])
+
+    def test_tenth_review_batch_records_caliber_sources_and_keeps_correct_answers(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            121, 122, 123, 124, 125, 257, 258, 259, 260, 261, 262, 263, 264,
+            274, 275, 276, 277, 278, 281, 282, 283, 284, 334, 336, 456, 458,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+                self.assertEqual(questions[qid]["answer"], 0)
+        # Source-backed caliber/classification answers; no live data fetch is implied.
+        answers = {
+            122: "5.56x45mm", 124: "9x39mm", 257: "12.7x55mm", 258: ".50 BMG",
+            261: "4.6x30mm HK", 262: "5.7x28mm FN", 263: "6.8x51mm",
+            264: "12.7x55mm", 274: "CR 200DS", 275: ".45 ACP",
+            276: "7.62x51mm NATO", 277: ".300 블랙아웃", 278: ".366 TKM",
+            281: "MP-18", 282: "9.3x64mm", 283: "DVL-10", 284: ".357 매그넘",
+            456: "5.56x45mm", 458: "FAMAS G2",
+        }
+        for qid, expected in answers.items():
+            self.assertEqual(questions[qid]["choices"][questions[qid]["answer"]], expected)
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

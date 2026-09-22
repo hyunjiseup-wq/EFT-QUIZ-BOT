@@ -23,8 +23,10 @@
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
 - 9차: `65952d3` 이후 무기 14문항 대조. 11문항의 조건·설명을 보완하고
   3문항(Q15·21·393)은 문제·보기·해설을 유지한 채 근거를 추가했다.
-- 근거를 기록한 문항: 188개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14).
-  그 외 276개를 확인 완료로 표시하지 않는다.
+- 10차: `d2a6e2c` 이후 구경·분류·공개 관련 무기 26문항 대조. 13문항을 보완하고
+  13문항은 문제·보기·해설을 유지한 채 근거를 추가했다.
+- 근거를 기록한 문항: 214개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26).
+  그 외 250개를 확인 완료로 표시하지 않는다.
 - `volatile`: 242개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
@@ -292,6 +294,35 @@ Q391·392·393은 패치에 따른 규칙 변경 가능성을 표시했고, Q395
 자료 시점과 실측 미완료를 명시하도록 갱신했다. Q395의 정답은 보기 네 계열 내 비교로 유효하다.
 AS VAL도 275이고 ASh-12는 175이므로 AKS-74U가 전체 무기 중 최저라고 일반화하지 않는다.
 
+## 10차 수정 — 구경·분류·공개와 출시 구분
+
+26문항을 대조해 13문항을 보완했다. 정답 인덱스·문항 수·난이도·모드는 유지했다.
+무기 분류 53문항 중 근거 기록은 45문항이며, 나머지 8문항과 최신 게임 실측은 미완료다.
+
+| 문항 | 판정·수정 | 근거 |
+|---|---|---|
+| Q121·123 | AK-74 모델 범위와 게임의 SVDS 명칭을 명시 | [Ammunition](https://escapefromtarkov.fandom.com/wiki/Ammunition), [7.62x54mmR](https://escapefromtarkov.fandom.com/wiki/7.62x54mmR) |
+| Q124 | 9x39mm를 VSS·AS VAL만 사용하는 것으로 읽히지 않도록 설명 | [9x39mm](https://escapefromtarkov.fandom.com/wiki/9x39mm) |
+| Q125·281 | MP-18은 게임의 산탄총 분류지만 7.62x54R을 사용. Q125를 MP-133에 한정해 오답 보기와의 범위 중첩 제거 | [MP-133](https://escapefromtarkov.fandom.com/wiki/MP-133_12ga_pump-action_shotgun), [MP-18](https://escapefromtarkov.fandom.com/wiki/MP-18_7.62x54R_single-shot_rifle) |
+| Q263·277 | 게임의 MCX·SPEAR 구경을 현실의 모든 변형에 일반화하지 않도록 명시 | [MCX](https://escapefromtarkov.fandom.com/wiki/SIG_MCX_.300_Blackout_assault_rifle), [SPEAR](https://escapefromtarkov.fandom.com/wiki/SIG_MCX-SPEAR_6.8x51_assault_rifle) |
+| Q276·278 | .308 Marlin Express를 구분하고 탄창 이름과 총기 구경의 차이 설명 | [AK-308](https://escapefromtarkov.fandom.com/wiki/Kalashnikov_AK-308_7.62x51_assault_rifle), [VPO-209](https://escapefromtarkov.fandom.com/wiki/Molot_Arms_VPO-209_.366_TKM_carbine) |
+| Q283·284·334 | 게임 내 모델·분류로 한정. .44 Magnum의 전체 게임 미존재 단정 제거 | [Weapons](https://escapefromtarkov.fandom.com/wiki/Weapons), [L5 .357](https://escapefromtarkov.fandom.com/wiki/Magnum_Research_Desert_Eagle_L5_.357_pistol), [AK-50](https://escapefromtarkov.fandom.com/wiki/TheAKGuy_AK-50_.50_BMG_anti-materiel_rifle) |
+| Q458 | 방송 자체를 검증한 것처럼 표시하지 않고 직접 확인한 공식 게시물을 질문. 공개와 출시를 구분 | [공식 FAMAS 공개](https://t.me/escapefromtarkovEN/6745), [1.1.0 노트](https://telegra.ph/Patch-1100-08-03) |
+
+내용 유지 후 근거만 추가한 13문항은 Q122·257·258·259·260·261·262·264·274·275·282·336·456이다.
+각 문항의 `sources`에는 해당 무기 또는 구경 문서 URL을 기록했다. Howa Type 20은 1.1.0의
+Content 목록을 직접 열어 5.56x45mm 사용을 확인했다. 다른 보기의 QBZ-191·HK 416A5 RAL 8000도
+같은 목록에 있다. 위키의 미출시 무기 목록을 현행 출시 여부의 근거로 사용하지 않았다.
+
+FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따라 확인했다. 공개 페이지 HTML의
+해당 게시물 `time` 값은 `2026-08-10T18:08:51+00:00`으로, 한국시간으로는 8월 11일이다.
+퀴즈에는 게시물 날짜의 UTC 기준과 한국시간의 날짜 차이를 함께 명시했다. 게시물에 이름이 공개된 사실과
+게임에 출시된 사실은 다르므로 Q458은 여전히 `volatile`이며 출시 확인은 남겨두었다.
+
+위키 자료는 접근 제한으로 약 2~3개월 전 검색 수집본을 사용했다. 여기서 확인한 구경·분류는
+최신 탄약 피해·관통력·판매 조건 검증이 아니다. 타 사이트의 TKPD 수치가 다른 사례도 있어
+이번에는 무게·반동·가격 등 추가 수치를 채택하지 않았다. 변동형 수량은 242개로 유지했다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -349,6 +380,10 @@ AS VAL도 275이고 ASh-12는 175이므로 AKS-74U가 전체 무기 중 최저�
   컴파일·`git diff --check` 통과. 근거 기록 188개·변동형 242개와 양쪽 README 수량 일치.
   JSON 전후 비교로 변경 문항 14개 및 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
   600회 세션 추출 검사는 전체 테스트에 포함되며, 별도 임시 DB 부하 검사는 이번 차수에 재실행하지 않았다.
+- 10차는 회귀 테스트 3개 추가 후 전체 163개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 214개·변동형 242개와 양쪽 README 수량 일치.
+  JSON 전후 비교로 26문항만 변경됨과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,
