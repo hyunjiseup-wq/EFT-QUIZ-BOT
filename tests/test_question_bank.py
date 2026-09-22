@@ -492,6 +492,51 @@ class QuestionBankTests(unittest.TestCase):
             q.get("sources") for q in questions.values() if q["category"] == "장비"
         ))
 
+    def test_weapon_questions_distinguish_magazine_loading_and_firing_compatibility(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        for qid in (38, 267):
+            self.assertIn("PMM PstM", questions[qid]["explanation"])
+            self.assertIn("발사할 수", questions[qid]["explanation"])
+        self.assertIn("탄창에 들어가는", questions[38]["explanation"])
+        self.assertIn("PP-9 Klin", questions[267]["explanation"])
+        self.assertIn("AVT-40은 단발과 자동사격", questions[335]["explanation"])
+        self.assertNotIn("반자동 소총인 SVT/AVT", questions[335]["explanation"])
+
+    def test_weapon_effect_questions_keep_comparison_and_trigger_conditions(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("무게도 ADS 속도", questions[57]["explanation"])
+        self.assertIn("제거하거나 교체하지 않고", questions[58]["question"])
+        self.assertNotIn("가장 직접적으로", questions[150]["question"])
+        self.assertIn("새로 추가되는", questions[391]["question"])
+        self.assertIn("단계별로 누적", questions[391]["explanation"])
+        self.assertIn("약실에 탄", questions[392]["question"])
+        self.assertIn("약실에 탄", questions[392]["explanation"])
+        self.assertIn("보기의 네 계열 중", questions[395]["explanation"])
+        self.assertIn("전체 무기 중 최저라는 뜻은 아니", questions[395]["explanation"])
+
+    def test_ninth_review_batch_records_weapon_sources_without_live_verification_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (15, 21, 38, 57, 58, 73, 108, 150, 267, 335, 391, 392, 393, 395)
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+                self.assertEqual(questions[qid]["answer"], 0)
+        for qid in (391, 392, 393, 395):
+            self.assertTrue(questions[qid]["volatile"])
+            self.assertIn("검색 수집본", questions[qid]["volatile_note"])
+            self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

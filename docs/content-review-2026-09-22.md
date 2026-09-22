@@ -21,9 +21,11 @@
 - 8차: `f62cae0` 이후 장비 27문항 대조. 20문항의 계산·조건·설명을 수정하고
   7문항은 문제·보기·해설을 유지했다. Q289는 정답 인덱스도 0에서 2로 수정했다.
 - 모드: 공통 451 / PvP 11 / PvE 2. 공통 포함 PvP 462 / PvE 453.
-- 근거를 기록한 문항: 174개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27).
-  그 외 290개를 확인 완료로 표시하지 않는다.
-- `volatile`: 239개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개 추가). 이 표시는 **출제 제외가 아니다**.
+- 9차: `65952d3` 이후 무기 14문항 대조. 11문항의 조건·설명을 보완하고
+  3문항(Q15·21·393)은 문제·보기·해설을 유지한 채 근거를 추가했다.
+- 근거를 기록한 문항: 188개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14).
+  그 외 276개를 확인 완료로 표시하지 않는다.
+- `volatile`: 242개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -267,6 +269,29 @@ Q398~402·412의 최신 수치는 별도 실측이 필요하다. 방어 성능 �
 Q412의 Death Knight는 다른 아이템이므로 같은 마스크로 취급하지 않았다.
 문항 수·ID·난이도·모드는 유지했다. 운영 DB 및 실행 중 봇은 변경하지 않았다.
 
+## 9차 수정 — 무기 호환성·작동·효과 범위
+
+14문항 중 11문항을 보완했다. 정답 인덱스·문항 수·난이도·모드는 변경하지 않았다.
+
+| 문항 | 판정·수정 | 근거 |
+|---|---|---|
+| Q15·21 | 모딩·부착물 용어는 유지하고 출처 기록 | [Weapon mods](https://escapefromtarkov.fandom.com/wiki/Weapon_mods) |
+| Q38·267 | 탄창에 담을 수 있는 것과 총기의 발사 호환성 구분. Kedr와 Klin의 PMM PstM 차이 명시 | [Kedr](https://escapefromtarkov.fandom.com/wiki/PP-91_Kedr_9x18PM_submachine_gun), [PMM PstM](https://escapefromtarkov.fandom.com/wiki/9x18mm_PMM_PstM_gzh), [0.14 노트 전재](https://www.pcgamesn.com/escape-from-tarkov/0-14-patch-notes) |
+| Q57 | 에르고 효과를 ADS 속도·조준 소리·스태미나로 명시. 무게도 영향을 준다는 조건 추가 | [Performance modifiers](https://escapefromtarkov.fandom.com/wiki/Performance_modifiers) |
+| Q58·73 | 부품 추가와 교체 구분, 파츠별 호환·전용 마운트 확인 | Weapon mods, [Tokarev mount](https://escapefromtarkov.fandom.com/wiki/SVT-40_Tokarev_PU_mount) |
+| Q108 | 아이언사이트 정의에서 모든 총기에 기본 장착된다는 함의 제거 | [SVT rear sight](https://escapefromtarkov.fandom.com/wiki/SVT-40_rear_sight) |
+| Q150 | 총구 장치의 반동 감소와 모든 빌드의 최대 감소량을 구분 | Weapon mods |
+| Q335 | 분류는 돌격 카빈 유지. SVT는 반자동, AVT는 자동사격도 가능하므로 둘 다 반자동으로 묶은 해설 수정 | [SVT-40](https://escapefromtarkov.fandom.com/wiki/Tokarev_SVT-40_7.62x54R_rifle), [AVT-40](https://escapefromtarkov.fandom.com/wiki/Tokarev_AVT-40_7.62x54R_automatic_rifle) |
+| Q391·392 | 과열의 이전 단계 효과가 사라지는 것처럼 읽히지 않도록 새로 추가되는 고장을 질문. 교체 버프 해설에 약실 조건 명시 | [Weapon malfunctions](https://escapefromtarkov.fandom.com/wiki/Weapon_malfunctions) |
+| Q393·395 | 숙련도 3레벨 효과 근거 기록. 275 경험치가 전체 무기 최저라는 해설의 함의를 제거 | [Weapon mastery](https://escapefromtarkov.fandom.com/wiki/Weapon_mastery) |
+
+위키 직접 접근은 차단되어 약 2~3개월 전 검색 수집본을 대조했다. Q38의 혼합 장전은
+2023-12-27 PCGamesN의 0.14 패치 노트 전재로 확인했다. 해당 기사에서 연결한 공식 원문은
+접근 오류가 나서 직접 확인하지 못했다. Arena 노트의 유사 기능을 본편 근거로 사용하지 않았다.
+Q391·392·393은 패치에 따른 규칙 변경 가능성을 표시했고, Q395의 기존 변동형 메모도
+자료 시점과 실측 미완료를 명시하도록 갱신했다. Q395의 정답은 보기 네 계열 내 비교로 유효하다.
+AS VAL도 275이고 ASh-12는 175이므로 AKS-74U가 전체 무기 중 최저라고 일반화하지 않는다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -320,6 +345,10 @@ Q412의 Death Knight는 다른 아이템이므로 같은 마스크로 취급하�
   컴파일·`git diff --check` 통과. 근거 기록 174개·변동형 239개와 양쪽 README 수량 일치.
   장비 27문항의 근거를 추가하고 20문항의 내용을 보완했다. Q289의 정답 인덱스는 0에서 2로 수정했다.
   의료·식량 44문항과 장비 33문항 모두 근거가 있지만 최신 게임 실측 완료를 뜻하지 않는다.
+- 9차는 회귀 테스트 3개 추가 후 전체 160개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 188개·변동형 242개와 양쪽 README 수량 일치.
+  JSON 전후 비교로 변경 문항 14개 및 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  600회 세션 추출 검사는 전체 테스트에 포함되며, 별도 임시 DB 부하 검사는 이번 차수에 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
 - 임시 DB의 8,500명·25,500회 응시, 동시 랭킹 조회 200회,

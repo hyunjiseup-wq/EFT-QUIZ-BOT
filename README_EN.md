@@ -322,14 +322,15 @@ standard/permanent placement.
 **Latest review: 2026-09-22.** Official 1.1.0, 1.1.5.0, and 1.1.5.1 notes, follow-up announcements,
 and indexed wiki content were used to correct ambiguous answers, missing exceptions, and conditions.
 Six questions (Q459–Q464) were added, and reviews now cover traders, quests, seasons, Hideout, skills,
-medical items, and gear. The latest batch reviewed 27 gear questions and revised 20, correcting Q289's
-slots-per-kilogram calculation and answer, Q396's Key case efficiency, and armor comparison scopes.
+medical items, gear, and weapons. The gear review corrected Q289's slots-per-kilogram answer and
+Q396's Key case efficiency. The latest batch reviewed 14 weapon questions and revised 11, separating
+magazine loading from firing compatibility, SVT/AVT firing modes, and overheating/swap conditions.
 All 44 medical/provision and 33 gear questions have source records, not latest-client verification.
 Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **239 are `volatile`**; **174 questions have source/date records**.
+Of 464 questions, **242 are `volatile`**; **188 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
