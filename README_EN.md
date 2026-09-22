@@ -3,8 +3,8 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **464 questions**.
-Four questions are on hold, leaving 460 active questions. Each session randomly draws
+It uses a 4-choice button UI, and `questions.json` currently holds **474 questions**.
+Four questions are on hold, leaving 470 active questions. Each session randomly draws
 **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from the active pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -15,9 +15,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 | Item | Current value |
 |---|---|
-| Question bank | 464 total — 449 common · 13 PvP-only · 2 PvE-only |
-| Question status | 460 active · 4 on hold (Q95, Q102, Q225, Q226) |
-| Playable pools | PvP 458 (`common+pvp`) · PvE 447 (`common+pve`) — active questions only |
+| Question bank | 474 total — 459 common · 13 PvP-only · 2 PvE-only |
+| Question status | 470 active · 4 on hold (Q95, Q102, Q225, Q226) |
+| Playable pools | PvP 468 (`common+pvp`) · PvE 457 (`common+pve`) — active questions only |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -393,8 +393,12 @@ pool, not the PvE co-op/AI population context. Conflicting Interchange and night
 remain unresolved. Two minimap/kill-feed and two trader buyback questions still lack reliable current
 answer evidence. Q95, Q102, Q225, and Q226 are now on hold; their original text is archived and is not
 marked verified. `volatile` remains an advisory flag; only `enabled: false` excludes a question.
-Of 464 questions, **290 are `volatile`**; **460 questions have source/date records**.
-This is not a claim that all 464 questions were verified in the latest game client.
+On September 23, ten common questions (Q465–Q474) were added on malfunction symptoms, storage
+restrictions, and layered armor. Q26 and Q405 now use scenarios instead of repeating basic concepts.
+The [expansion review](docs/question-expansion-2026-09-23.md) records source age and evidence limits.
+No unresolved numeric values were finalized and no held questions were reactivated.
+Of 474 questions, **300 are `volatile`**; **470 questions have source/date records**.
+This is not a claim that all 474 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
 Include both when recording future reviews. `--volatile` displays them and validates their format.
