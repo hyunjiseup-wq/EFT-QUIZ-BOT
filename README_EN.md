@@ -336,11 +336,14 @@ A further 25 ammunition questions had their answers, option values, and explanat
 45 of 46 ammunition questions now have source records; Q369's starting T-45M1 sale condition and live values remain unverified.
 Another 22 basic-system/season questions clarify LEDX's purpose, faction selection, separate PMC/Scav
 characters, and death/MIA protection exceptions. Seasonal rewards mean unlocked trader offers, not transfer of all gear.
+Another 35 trader/basic-quest questions clarify Prapor's Tour unlock, Jaeger's Introduction unlock,
+loyalty levels versus reputation, and dedicated quest items versus ordinary handover items.
+Jaeger's insurance explanation no longer asserts a return time absent from the official patch notes.
 Q410 and Q429
 now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
 or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
-Of 464 questions, **247 are `volatile`**; **288 questions have source/date records**.
+Of 464 questions, **251 are `volatile`**; **323 questions have source/date records**.
 This is not a claim that all 464 questions were verified in the latest game client.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.

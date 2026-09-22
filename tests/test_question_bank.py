@@ -785,6 +785,57 @@ class QuestionBankTests(unittest.TestCase):
             self.assertTrue(questions[qid]["volatile"])
             self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
 
+    def test_trader_review_separates_story_unlocks_and_loyalty_from_reputation(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("LL1~LL4", questions[13]["question"])
+        self.assertIn("구분되는 수치", questions[13]["explanation"])
+        self.assertIn("Tour", questions[27]["question"])
+        self.assertIn("Factory", questions[27]["question"])
+        self.assertEqual(questions[27]["choices"][0], "프라포르(Prapor)")
+        self.assertIn("Introduction", questions[68]["question"])
+        self.assertIn("메카닉에게 전달", questions[75]["choices"][0])
+        self.assertIn("평판", questions[36]["explanation"])
+        self.assertNotIn("카르마는 펜스에만", questions[36]["explanation"])
+        self.assertEqual(questions[48]["choices"][2], "상인 평판(Reputation) 상승")
+
+    def test_trader_review_bounds_flea_quest_items_and_insurance_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("상인 매물도", questions[12]["explanation"])
+        self.assertIn("판매한 물품", questions[59]["choices"][0])
+        self.assertIn("별도 퀘스트 아이템 인벤토리", questions[60]["question"])
+        self.assertIn("일반 루팅 아이템 전체", questions[60]["explanation"])
+        self.assertNotIn("수 시간", questions[126]["explanation"])
+        self.assertIn("수령 기한", questions[126]["explanation"])
+        self.assertIn("영구 프로필", questions[127]["question"])
+        self.assertNotIn("로그(Rogues)", questions[172]["choices"][3])
+
+    def test_fifteenth_review_batch_records_trader_and_quest_sources(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            12, 13, 22, 25, 27, 31, 36, 42, 48, 50, 53, 54, 59, 60, 62, 64,
+            68, 75, 87, 88, 89, 91, 117, 126, 127, 167, 172, 223, 224, 227,
+            291, 292, 313, 452, 453,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                self.assertTrue(q["sources"])
+                self.assertEqual(q["answer"], 0)
+                self.assertEqual(q.get("mode", "common"), "common")
+        for qid in (27, 68, 75, 127, 313):
+            self.assertTrue(questions[qid]["volatile"])
+            self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}

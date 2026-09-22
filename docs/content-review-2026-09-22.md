@@ -31,9 +31,11 @@
 - 13차: `4941c8f` 이후 탄약 수치 25문항의 보기·해설까지 대조하고 비교 범위·기본값 설명을 보완했다.
 - 14차: `88a380e` 이후 기본 시스템·시즌 22문항 대조. 15문항의 내용을 보완하고
   7문항은 문제·보기·해설을 유지한 채 근거를 기록했다.
-- 근거를 기록한 문항: 288개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22).
-  그 외 176개를 확인 완료로 표시하지 않는다.
-- `volatile`: 247개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개 추가). 이 표시는 **출제 제외가 아니다**.
+- 15차: `8ae586f` 이후 상인·기초 퀘스트 35문항 대조. 16문항의 내용을 보완하고
+  19문항은 문제·보기·해설을 유지한 채 근거를 기록했다.
+- 근거를 기록한 문항: 323개(1차 20 + 2차 14 + 3차 19 + 4차 19 + 5차 32 + 6차 28 + 7차 15 + 8차 27 + 9차 14 + 10차 26 + 11차 8 + 12차 19 + 13차 25 + 14차 22 + 15차 35).
+  그 외 141개를 확인 완료로 표시하지 않는다.
+- `volatile`: 251개(2차 5개, 4차 2개, 5차 17개, 6차 9개, 7차 1개, 8차 8개, 9차 3개, 11차 1개, 12차 1개, 14차 3개, 15차 4개 추가). 이 표시는 **출제 제외가 아니다**.
   남은 검토 항목도 현재 풀에서 출제된다.
 - `reviewed_at`은 검토를 수행한 날짜다. 원전 최신성·전체 명제의 실측을 보장하지 않는다.
 
@@ -483,6 +485,51 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
 근거를 기록한 22문항 중 Q4·92·408·409·447·449·451의 문제·보기·해설은 유지했다.
 이번 검사 역시 최신 클라이언트 실측 완료를 뜻하지 않는다.
 
+## 15차 — 상인 접근·거래 단계·퀘스트 회수품
+
+대상: Q12·13·22·25·27·31·36·42·48·50·53·54·59·60·62·64·68·75·87·88·89·91·117·126·127·167·172·223·224·227·291·292·313·452·453.
+문항 수·ID·정답 인덱스·난이도·모드·카테고리는 유지한다.
+
+- Q27: 프라포르가 처음부터 열린다는 단정을 Tour의 메카닉·Factory 단계 해금 문항으로 수정했다.
+  [Tour](https://escapefromtarkov.fandom.com/wiki/Tour), [Prapor](https://escapefromtarkov.fandom.com/wiki/Prapor).
+- Q68·75: 예거 해금은 Introduction 완료다. 다른 보기를 모두 기본 해금 상인이라고 설명하던
+  부분을 수정하고, 전갈 회수·메카닉 전달을 명시했다.
+  [Introduction](https://escapefromtarkov.fandom.com/wiki/Introduction),
+  [Mechanic](https://escapefromtarkov.fandom.com/wiki/Mechanic), [Skier](https://escapefromtarkov.fandom.com/wiki/Skier).
+- Q13·25·36·48: 거래 단계 LL과 평판을 구분했다. 레벨만으로 모든 상인이 해금되거나 모든 가격이
+  할인된다는 설명, 카르마가 펜스에만 영향을 준다는 단정은 제거했다.
+  승급 조건에 누적 거래액을 다시 넣지 않았다. [공식 1.1.0 노트](https://telegra.ph/Patch-1100-08-03),
+  [퀘스트](https://escapefromtarkov.fandom.com/wiki/Quests).
+- Q12·22·31·62·64·117: 거래·선불 등록 수수료·재입고·바터를 대조했다.
+  벼룩시장에는 상인 매물도 표시되며, 펜스의 재판매 재고는 일반 재입고 설명과 구분했다.
+  [거래](https://escapefromtarkov.fandom.com/wiki/Trading), [바터](https://escapefromtarkov.fandom.com/wiki/Barter_trades).
+- Q50·59: 카르마와 펜스 평판의 관계, 펜스의 재판매 재고를 확인했다. 단순 랜덤 잡화라는
+  설명을 실제 판매된 물품을 취급한다는 설명으로 고쳤다.
+  [Scavs](https://escapefromtarkov.fandom.com/wiki/Scavs), [Fence](https://escapefromtarkov.fandom.com/wiki/Fence).
+- Q60: 별도 퀘스트 인벤토리의 전용 회수품과 일반 제출품을 구분했다.
+  퀘스트에 쓰이는 모든 루팅 아이템이 거래 불가인 것은 아니다.
+  [퀘스트 아이템 규칙](https://escapefromtarkov.fandom.com/wiki/Quests).
+- Q42·126·127: 영구 프로필 보험·예거 보험의 상대적 특징·The Lab 반환 제외를 대조했다.
+  공식 노트에 없는 ‘수 시간’ 단정은 제거했다. [1.1.0 노트](https://telegra.ph/Patch-1100-08-03),
+  [보험](https://escapefromtarkov.fandom.com/wiki/Insurance).
+- Q53·54·87·89·91·167·223·224·227·291·292: 상인별 통화·취급품·소재지·신원을 대조했다.
+  [Peacekeeper](https://escapefromtarkov.fandom.com/wiki/Peacekeeper), [Skier](https://escapefromtarkov.fandom.com/wiki/Skier),
+  [Therapist](https://escapefromtarkov.fandom.com/wiki/Therapist), [Ragman](https://escapefromtarkov.fandom.com/wiki/Ragman),
+  [Jaeger](https://escapefromtarkov.fandom.com/wiki/Jaeger), [Ref](https://escapefromtarkov.fandom.com/wiki/Ref),
+  [Prapor](https://escapefromtarkov.fandom.com/wiki/Prapor), [Mechanic](https://escapefromtarkov.fandom.com/wiki/Mechanic).
+- Q88·313: 건스미스 제공자는 메카닉, 1편 개조 대상은 MP-133으로 대조했다. 부품·수치 추가는 하지 않았다.
+  [Gunsmith - Part 1](https://escapefromtarkov.fandom.com/wiki/Gunsmith_-_Part_1).
+- Q172: 레이드 내 상인·안전한 접근 조건을 확인했다. 로그 지휘 관계처럼 서비스와 혼동하기 쉬운
+  오답 보기를 메뉴 전용 NPC라는 명확한 오답으로 교체했다.
+  [Lightkeeper](https://escapefromtarkov.fandom.com/wiki/Lightkeeper).
+- Q452·453: 그룹 공유의 조건과 사이드 퀘스트의 Scav 판정을 공식 노트와 대조하고 내용을 유지했다.
+  [1.1.0 노트](https://telegra.ph/Patch-1100-08-03).
+
+위키는 약 2개월 전 검색 수집본이다. 오래된 상인 문서의 누적 거래액 조건과 보험 반환시간은
+1.1.0 노트와 충돌하므로 채택하지 않았다. Q27·68·75·127에 `volatile`을 추가했다.
+상인 33문항 중 31문항에 근거가 기록됐지만 Q225·226 매입 배율의 최신성은 미확인이다.
+이번 기록 역시 최신 게임 화면으로 실제 거래·해금을 수행했다는 뜻은 아니다.
+
 ## 운영 문서와 실제 코드
 
 - 관전 로그: `admin_log.py`는 답변을 매번 기록하되 기본 5문제마다 Discord 편집 요청을 보낸다.
@@ -560,6 +607,11 @@ FAMAS의 개별 게시물은 공식 공개 채널에서 연결한 주소를 따�
 - 14차는 회귀 테스트 3개 추가 후 전체 175개 통과. 464문항 형식 검사·Ruff·변경 테스트
   컴파일·`git diff --check` 통과. 근거 기록 288개·변동형 247개와 양쪽 README 수량 일치.
   JSON 전후 비교로 22문항만 변경됨(내용 변경 15개)과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 로컬 재실행하지 않았다.
+- 15차는 회귀 테스트 3개 추가 후 전체 178개 통과. 464문항 형식 검사·Ruff·변경 테스트
+  컴파일·`git diff --check` 통과. 근거 기록 323개·변동형 251개와 양쪽 README 수량 일치.
+  JSON 전후 비교로 35문항만 변경됨(내용 변경 16개)과 문항 수·ID·정답 인덱스·난이도·모드·카테고리 보존 확인.
+  보기 문장의 병렬 표현을 다듬은 뒤 해당 문항 테스트와 형식 검사를 재실행했다.
   600회 세션 추출 검사는 전체 테스트에 포함된다. 별도 임시 DB 부하 검사는 이번 차수에 로컬 재실행하지 않았다.
 - Ruff·Python 컴파일·464문항 형식 검사 통과.
 - PvP/PvE 각각 300회 추출에서 난이도 수량·ID 중복·모드 격리 검사 통과.
