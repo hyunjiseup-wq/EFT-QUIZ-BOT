@@ -634,6 +634,58 @@ class QuestionBankTests(unittest.TestCase):
             q.get("sources") for q in questions.values() if q["category"] == "무기"
         ))
 
+    def test_ammo_penetration_questions_distinguish_probability_and_blunt_damage(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        self.assertIn("확률", questions[158]["explanation"])
+        self.assertIn("관통 판정에서 실패", questions[52]["question"])
+        self.assertNotIn("클래스를 넘지 못하면", questions[52]["question"])
+        self.assertIn("전달될 수 있다", questions[52]["choices"][questions[52]["answer"]])
+        self.assertIn("항상 체력 피해 0", questions[405]["explanation"])
+        self.assertIn("실제 명중 피해", questions[404]["explanation"])
+        self.assertIn("다른 수치", questions[46]["explanation"])
+        self.assertIn("거의 항상", questions[407]["choices"][questions[407]["answer"]])
+        self.assertTrue(questions[407]["volatile"])
+
+    def test_ammo_comparisons_bound_base_values_and_projectile_scope(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (186, 187, 188, 194, 199, 200, 237, 265, 266, 280, 286, 296)
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertIn("보기", questions[qid]["question"])
+                self.assertIn("기본", questions[qid]["question"])
+        self.assertNotIn("전체 1위", questions[199]["explanation"])
+        self.assertNotIn("게임 전체 단일 투사체 2위", questions[237]["explanation"])
+        self.assertIn("투사체 1발", questions[200]["question"])
+        self.assertIn("펠릿 하나", questions[280]["question"])
+        self.assertIn("8·8·8·9", questions[280]["explanation"])
+        self.assertIn("곱한 값", questions[296]["explanation"])
+        self.assertIn("7U4 아음속탄", questions[265]["choices"])
+
+    def test_twelfth_review_batch_records_ammo_sources_without_live_claims(self):
+        questions = {
+            q["id"]: q
+            for q in load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        }
+        qids = (
+            46, 52, 158, 186, 187, 188, 194, 199, 200, 237, 238, 265,
+            266, 280, 286, 296, 404, 405, 407,
+        )
+        for qid in qids:
+            with self.subTest(qid=qid):
+                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                self.assertTrue(questions[qid]["sources"])
+                self.assertEqual(questions[qid].get("mode", "common"), "common")
+                self.assertEqual(questions[qid]["answer"], 0)
+                if questions[qid].get("volatile"):
+                    self.assertIn("검색 수집본", questions[qid]["volatile_note"])
+                    self.assertIn("실측 검증은 아님", questions[qid]["volatile_note"])
+
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
         pvp = {**make_question(2), "mode": "pvp"}
