@@ -400,6 +400,12 @@ No unresolved numeric values were finalized and no held questions were reactivat
 Of 474 questions, **300 are `volatile`**; **470 questions have source/date records**.
 This is not a claim that all 474 questions were verified in the latest game client.
 
+The September 23 [full 474-question audit](docs/full-question-audit-2026-09-23.md) records a
+complete text review, not completed verification of every current-game fact.
+On September 24, Q144's Hall of Fame personal-kill requirement was removed to agree with Q338,
+and Q469 and Q471 were narrowed to regular PMC dogtags. Counts, modes, and scoring are unchanged.
+Replacing the historical bug questions Q410/Q429 and validating remaining current values are pending.
+
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
 Include both when recording future reviews. `--volatile` displays them and validates their format.
 The review date is not the source publication date or an in-game measurement date. Corrections based

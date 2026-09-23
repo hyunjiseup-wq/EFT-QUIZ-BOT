@@ -29,6 +29,31 @@ def make_question(qid: int, difficulty: str = "general") -> dict:
 
 
 class QuestionBankTests(unittest.TestCase):
+    def test_hall_of_fame_questions_do_not_restore_personal_kill_requirement(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        for qid in (144, 338):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertNotIn("직접 처치한", q["question"])
+                self.assertIn("본인 직접 처치 조건이 제거", q["explanation"])
+                self.assertIn("https://telegra.ph/Patch-1100-08-03", q["sources"])
+        self.assertEqual(questions[144]["choices"][questions[144]["answer"]],
+                         "홀 오브 페임(Hall of Fame)")
+
+    def test_storage_questions_limit_dogtags_to_regular_pmc_tags(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        for qid in (469, 471):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertIn("일반 PMC 도그태그", q["choices"][q["answer"]])
+                self.assertIn("특수 도그태그", q["explanation"])
+                self.assertIn("일반화하지 않습니다", q["explanation"])
+                self.assertIn("현재 규칙으로 확정하지 않음", q["volatile_note"])
+
     def test_practical_expansion_keeps_sources_scope_and_both_modes(self):
         questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
         new = [q for q in questions if 465 <= q["id"] <= 474]
@@ -37,7 +62,8 @@ class QuestionBankTests(unittest.TestCase):
             with self.subTest(qid=q["id"]):
                 self.assertEqual(q["mode"], "common")
                 self.assertTrue(q.get("enabled", True))
-                self.assertEqual(q["reviewed_at"], "2026-09-23")
+                expected_date = "2026-09-24" if q["id"] in {469, 471} else "2026-09-23"
+                self.assertEqual(q["reviewed_at"], expected_date)
                 self.assertTrue(q["sources"])
                 self.assertTrue(q["volatile"])
                 self.assertIn("검색 수집본", q["volatile_note"])
@@ -1141,7 +1167,7 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("수집을 의뢰", questions[32]["question"])
         self.assertIn("이익은 보장되지", questions[32]["explanation"])
         self.assertEqual(questions[142]["choices"][0], "문샤인 또는 인텔리전스 폴더")
-        self.assertIn("직접 처치한 상대 진영", questions[144]["question"])
+        self.assertIn("상대 진영 PMC의 도그태그", questions[144]["question"])
         self.assertIn("전투 스킬 성장", questions[144]["explanation"])
 
     def test_armor_review_separates_carrier_class_and_original_durability(self):
@@ -1184,7 +1210,8 @@ class QuestionBankTests(unittest.TestCase):
                 continue
             with self.subTest(qid=q["id"]):
                 self.assertTrue(q["sources"])
-                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                expected_date = "2026-09-24" if q["id"] == 144 else "2026-09-22"
+                self.assertEqual(q["reviewed_at"], expected_date)
                 self.assertEqual(q["answer"], 0)
                 self.assertEqual(q.get("mode", "common"), "common")
                 if q["id"] in changing:
