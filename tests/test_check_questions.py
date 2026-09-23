@@ -13,7 +13,7 @@ class QuestionCheckTests(unittest.TestCase):
             check_questions.main()
         report = output.getvalue()
         self.assertIn("총 474문제 (활성 470 · 출제 보류 4)", report)
-        self.assertIn("PVP 출제 가능: 468문제", report)
+        self.assertIn("PVP 출제 가능: 469문제", report)
         self.assertIn("PVE 출제 가능: 457문제", report)
         for qid in (95, 102, 225, 226):
             self.assertIn(f"[id {qid} · 출제 보류]", report)

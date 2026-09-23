@@ -15,9 +15,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 | Item | Current value |
 |---|---|
-| Question bank | 474 total — 459 common · 13 PvP-only · 2 PvE-only |
+| Question bank | 474 total — 460 common · 13 PvP-only · 1 PvE-only |
 | Question status | 470 active · 4 on hold (Q95, Q102, Q225, Q226) |
-| Playable pools | PvP 468 (`common+pvp`) · PvE 457 (`common+pve`) — active questions only |
+| Playable pools | PvP 469 (`common+pvp`) · PvE 457 (`common+pve`) — active questions only |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -28,7 +28,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 PvP and PvE are **question-pool tags**, not a claim that every game mechanic differs between the
 two modes. The thirteen PvP-only questions cover facts that only apply on the PvP side, including Kord
-Breach seasonal rules. The two PvE-only questions cover facts whose answers differ in PvE Zone.
+Breach seasonal rules. The one PvE-only question (Q372) covers the historical Blackout PvE Labs timer.
 Mechanics shared by permanent PvP profiles and PvE, such as insurance, stay in `common`.
 
 ## Commands
@@ -363,9 +363,9 @@ kill counts, faction-specific Drip-Out counts, and the Prestige event rollback r
 Eight event/unlock questions were also updated. Six Blackout questions explicitly ask about July 2026
 records, separating direct key use from entering an already-open room. Collector names the seven
 LL4 traders and the separate Fence reputation requirement, not a verified complete unlock checklist.
-Q410 and Q429
-now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
-or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
+Q410 and Q429 have been replaced with Battle Pass document acquisition rules and armor-material
+skill classification. This does not establish that the bugs in their previous versions were fixed.
+See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
 Ten boss/AI questions were cross-checked, with content changes to seven. Home territories are
 distinguished from exclusive spawn maps, and Kollontay's locations and Big Pipe's equipment are
@@ -403,8 +403,10 @@ This is not a claim that all 474 questions were verified in the latest game clie
 The September 23 [full 474-question audit](docs/full-question-audit-2026-09-23.md) records a
 complete text review, not completed verification of every current-game fact.
 On September 24, Q144's Hall of Fame personal-kill requirement was removed to agree with Q338,
-and Q469 and Q471 were narrowed to regular PMC dogtags. Counts, modes, and scoring are unchanged.
-Replacing the historical bug questions Q410/Q429 and validating remaining current values are pending.
+and Q469 and Q471 were narrowed to regular PMC dogtags, preserving those three questions' modes and scoring.
+A follow-up replaced Q410/Q429 and moved Q410 into the common pool. The bank still holds 474 questions,
+470 active, with unchanged scoring; the playable PvP pool increased from 468 to 469.
+Validation of the remaining current values is still pending.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
 Include both when recording future reviews. `--volatile` displays them and validates their format.

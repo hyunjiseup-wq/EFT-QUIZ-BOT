@@ -363,20 +363,37 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("스태미나 부족", questions[435]["question"])
         self.assertIn("완전 면역과 구분", questions[435]["explanation"])
 
-    def test_historical_skill_and_bug_questions_do_not_claim_current_runtime_state(self):
+    def test_historical_skill_questions_do_not_claim_current_runtime_state(self):
         path = Path(__file__).resolve().parents[1] / "questions.json"
         questions = {q["id"]: q for q in load_questions(path)}
         self.assertIn("미구현(Upcoming)", questions[202]["question"])
         self.assertIn("출시를 보장하지", questions[272]["explanation"])
         self.assertIn("목록에 이름이 있다는 사실", questions[293]["explanation"])
         self.assertIn("0.14.5", questions[331]["question"])
-        for qid in (410, 429):
-            with self.subTest(qid=qid):
-                self.assertTrue(questions[qid]["question"].startswith("과거"))
-                self.assertIn("위키", questions[qid]["question"])
-                self.assertIn("현재 재현·수정 여부는 미확인", questions[qid]["volatile_note"])
-        self.assertNotIn("정상 작동합니다", questions[429]["explanation"])
-        self.assertNotIn("정상적으로 지급됩니다", questions[410]["explanation"])
+
+    def test_battle_pass_document_question_is_available_in_both_modes(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        question = next(q for q in questions if q["id"] == 410)
+        self.assertEqual(question["mode"], "common")
+        self.assertIn("개인별", question["choices"][question["answer"]])
+        self.assertIn("블랙 디비전 대원의 문서는 공용", question["choices"][question["answer"]])
+        self.assertEqual(question["sources"], ["https://telegra.ph/Patch-1100-08-03"])
+        for mode in ("pvp", "pve"):
+            with self.subTest(mode=mode):
+                self.assertIn(410, {q["id"] for q in filter_questions_for_mode(questions, mode)})
+
+    def test_armor_material_question_replaces_unverified_intellect_bug(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        question = next(q for q in questions if q["id"] == 429)
+        self.assertEqual(question["category"], "스킬")
+        self.assertEqual(question["difficulty"], "expert")
+        self.assertEqual(
+            question["choices"][question["answer"]],
+            "UHMWPE → Light Vests / 세라믹 → Heavy Vests",
+        )
+        self.assertNotIn("Intellect", question["question"])
+        self.assertEqual(question["sources"], ["https://wikiwiki.jp/eft/ボディアーマー"])
+        self.assertIn("최신 클라이언트 검증은 미완료", question["volatile_note"])
 
     def test_fifth_review_batch_keeps_provenance_modes_and_volatile_numeric_rules(self):
         path = Path(__file__).resolve().parents[1] / "questions.json"
@@ -388,10 +405,11 @@ class QuestionBankTests(unittest.TestCase):
         )
         for qid in qids:
             with self.subTest(qid=qid):
-                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                expected_date = "2026-09-24" if qid in (410, 429) else "2026-09-22"
+                self.assertEqual(questions[qid]["reviewed_at"], expected_date)
                 self.assertTrue(questions[qid]["sources"])
                 self.assertEqual(
-                    questions[qid].get("mode", "common"), "pve" if qid == 410 else "common"
+                    questions[qid].get("mode", "common"), "common"
                 )
                 if qid not in (66, 161):
                     self.assertTrue(questions[qid]["volatile"])
@@ -1478,7 +1496,7 @@ class QuestionBankTests(unittest.TestCase):
             self.assertNotIn("reviewed_at", question)
             self.assertNotIn("sources", question)
         self.assertEqual(len(questions), 474)
-        self.assertEqual(len(filter_questions_for_mode(questions, "pvp")), 468)
+        self.assertEqual(len(filter_questions_for_mode(questions, "pvp")), 469)
         self.assertEqual(len(filter_questions_for_mode(questions, "pve")), 457)
 
     def test_mode_filter_includes_common_and_requested_mode_only(self):
