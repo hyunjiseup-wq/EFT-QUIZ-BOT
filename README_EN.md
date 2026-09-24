@@ -233,8 +233,13 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 - Concurrent starts by the same user reserve the first session before sending, while failed start
   messages and give-up log errors automatically release the session slot.
 - Give-up commands reserve an ephemeral response before supervisor-log work, avoiding Discord's
-  three-second response timeout. Sessions with a missing completion/timeout message are aborted
-  and released automatically.
+  three-second response timeout. In-progress sessions that lose their next-question message are
+  aborted and released automatically.
+- Once a completion is saved to the DB, a failed result-message edit/fetch or missing message does
+  not turn it into an aborted supervisor log. The session is finalized as completed and released.
+  If storage fails, the storage-failure reason survives a concurrent message failure. Message errors
+  do not trigger another DB write. This does not recover failed supervisor-log delivery or rewrite
+  historical logs.
 - Discord uses the existing root logger instead of adding a duplicate handler. CI runs once for a
   pull request and once again after its merge to `main`.
 - Quiz and supervisor dashboard message IDs are stored in SQLite. Even without pin permission or

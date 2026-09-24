@@ -40,9 +40,10 @@ async def edit_session_message(
     *,
     finalize_admin_log: Callable,
     logger: logging.Logger,
+    finalize_on_failure: bool = True,
     **message_kwargs,
 ) -> bool:
-    """세션 메시지를 수정하고 복구 불가능한 HTTP 오류에서는 세션을 정리한다."""
+    """메시지를 수정한다. 완료 처리는 실패 시 정리를 호출자가 맡을 수 있다."""
     try:
         if interaction is not None:
             if interaction.response.is_done():
@@ -54,29 +55,31 @@ async def edit_session_message(
             await session.message.edit(**message_kwargs)
         else:
             logger.warning(
-                "수정할 세션 메시지가 없어 중단합니다 (guild=%s, user=%s)",
+                "수정할 세션 메시지가 없습니다 (guild=%s, user=%s)",
                 session.guild_id,
                 session.user_id,
             )
-            await _finalize_and_cleanup(
-                session,
-                finalize_admin_log=finalize_admin_log,
-                logger=logger,
-                aborted=True,
-                reason="세션 메시지 없음으로 중단",
-            )
+            if finalize_on_failure:
+                await _finalize_and_cleanup(
+                    session,
+                    finalize_admin_log=finalize_admin_log,
+                    logger=logger,
+                    aborted=True,
+                    reason="세션 메시지 없음으로 중단",
+                )
             return False
         return True
     except discord.HTTPException as error:
         # ephemeral 메시지는 인터랙션 토큰이 만료되면 더 이상 수정할 수 없다.
         logger.warning("세션 메시지 수정 실패 (user=%s): %s", session.user_id, error)
-        await _finalize_and_cleanup(
-            session,
-            finalize_admin_log=finalize_admin_log,
-            logger=logger,
-            aborted=True,
-            reason="메시지 수정 실패로 중단",
-        )
+        if finalize_on_failure:
+            await _finalize_and_cleanup(
+                session,
+                finalize_admin_log=finalize_admin_log,
+                logger=logger,
+                aborted=True,
+                reason="메시지 수정 실패로 중단",
+            )
         return False
 
 
@@ -116,19 +119,21 @@ async def advance_or_finish(
                 session.guild_id,
                 session.user_id,
             )
-            await edit_session_message(
-                session,
-                interaction,
-                finalize_admin_log=finalize_admin_log,
-                logger=logger,
-                content=(
-                    f"{quiz_icon_text(session.guild_id, 'tq_warning', '⚠️')} "
-                    "퀴즈는 완료됐지만 기록 저장에 실패했습니다. 관리자에게 문의해주세요."
-                ),
-                embed=embed,
-                view=None,
-            )
-            if not session.finished:
+            try:
+                await edit_session_message(
+                    session,
+                    interaction,
+                    finalize_admin_log=finalize_admin_log,
+                    logger=logger,
+                    finalize_on_failure=False,
+                    content=(
+                        f"{quiz_icon_text(session.guild_id, 'tq_warning', '⚠️')} "
+                        "퀴즈는 완료됐지만 기록 저장에 실패했습니다. 관리자에게 문의해주세요."
+                    ),
+                    embed=embed,
+                    view=None,
+                )
+            finally:
                 await _finalize_and_cleanup(
                     session,
                     finalize_admin_log=finalize_admin_log,
@@ -138,16 +143,19 @@ async def advance_or_finish(
                 )
             return
 
-        updated = await edit_session_message(
-            session,
-            interaction,
-            finalize_admin_log=finalize_admin_log,
-            logger=logger,
-            content=result_text,
-            embed=embed,
-            view=None,
-        )
-        if updated:
+        # DB 저장 성공은 결과 화면 전달 성공과 별개다. 화면 실패로 완주를 중단 처리하지 않는다.
+        try:
+            await edit_session_message(
+                session,
+                interaction,
+                finalize_admin_log=finalize_admin_log,
+                logger=logger,
+                finalize_on_failure=False,
+                content=result_text,
+                embed=embed,
+                view=None,
+            )
+        finally:
             await _finalize_and_cleanup(
                 session,
                 finalize_admin_log=finalize_admin_log,
