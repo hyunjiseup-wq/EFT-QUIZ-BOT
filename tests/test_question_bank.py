@@ -1540,6 +1540,77 @@ class QuestionBankTests(unittest.TestCase):
 
         self.assertEqual(validate_questions(questions, {"general": 2}), [])
 
+    def test_invalid_field_types_are_reported_without_crashing(self):
+        for field, message in (("difficulty", "알 수 없는 난이도"), ("mode", "알 수 없는 mode")):
+            for value in ([], {}, ["general"], {"name": "common"}, None, True, 1):
+                with self.subTest(field=field, value=value):
+                    question = {**make_question(1), field: value}
+                    errors = validate_questions([question], {"general": 1})
+                    self.assertTrue(any(message in error for error in errors))
+
+    def test_explanation_must_be_nonempty_text(self):
+        for value in ("", " \t\n", None, [], 0):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "explanation": value}], {"general": 1}
+                )
+                self.assertTrue(any("explanation" in error for error in errors))
+
+    def test_volatile_rejects_non_boolean_flags_even_with_note(self):
+        for value in ("false", "true", 0, 1, None, [], {}):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "volatile": value, "volatile_note": "메모"}],
+                    {"general": 1},
+                )
+                self.assertTrue(any("volatile는 true 또는 false" in error for error in errors))
+
+    def test_volatile_requires_nonempty_note_only_when_true(self):
+        for value in (None, "", " \t\n", [], 0):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "volatile": True, "volatile_note": value}],
+                    {"general": 1},
+                )
+                self.assertTrue(any("volatile_note" in error for error in errors))
+        for fields in ({}, {"volatile": False}, {"volatile": True, "volatile_note": "검토 필요"}):
+            with self.subTest(fields=fields):
+                self.assertEqual(
+                    validate_questions([{**make_question(1), **fields}], {"general": 1}), []
+                )
+
+    def test_duplicate_text_and_choices_ignore_surrounding_whitespace(self):
+        questions = [make_question(1), {**make_question(2), "question": "  문제 1\n"}]
+        errors = validate_questions(questions, {"general": 2})
+        self.assertTrue(any("중복된 문제 지문" in error for error in errors))
+        question = {**make_question(1), "choices": ["정답", " 정답\t", "오답 2", "오답 3"]}
+        errors = validate_questions([question], {"general": 1})
+        self.assertTrue(any("중복된 보기" in error for error in errors))
+        self.assertEqual(question["choices"][1], " 정답\t")  # 검증 과정에서 원문을 수정하지 않는다.
+
+    def test_loader_reports_invalid_utf8_as_question_data_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            path.write_bytes(b'["\xff"]')
+            with self.assertRaisesRegex(QuestionDataError, "UTF-8"):
+                load_questions(path)
+
+    def test_loader_rejects_duplicate_json_fields_instead_of_overwriting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            for field in ("answer", "mode", "enabled"):
+                with self.subTest(field=field):
+                    path.write_text('[{"' + field + '": 0, "' + field + '": 1}]', encoding="utf-8")
+                    with self.assertRaisesRegex(QuestionDataError, "중복된 JSON 필드"):
+                        load_questions(path)
+
+    def test_validated_loader_reports_malformed_question_instead_of_type_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            path.write_text(json.dumps([{**make_question(1), "difficulty": []}]), encoding="utf-8")
+            with self.assertRaisesRegex(QuestionDataError, "알 수 없는 난이도"):
+                load_validated_questions(path, {"general": 1})
+
     def test_validation_finds_duplicate_id_and_shortage(self):
         questions = [make_question(1), make_question(1)]
 

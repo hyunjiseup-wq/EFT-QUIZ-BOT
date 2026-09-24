@@ -293,6 +293,13 @@ answer index, duplicates, category names, etc.). The bot only reads `questions.j
 so **you need to restart the bot after editing.** The bot runs the same validation on startup and
 refuses to run with invalid questions.
 
+Save the bank as UTF-8 JSON without repeated fields such as `answer` or `mode` in one object.
+Duplicate fields are rejected instead of silently keeping the last value. Invalid difficulty/mode
+types are reported as validation errors. Explanations cannot be blank, and questions/choices differing
+only in surrounding whitespace count as duplicates; validation does not rewrite the original text.
+Omit `volatile` or use a JSON boolean (`true`/`false`). When `true`, a nonblank `volatile_note` is required.
+These checks prevent format errors; they do not establish the current factual accuracy of game content.
+
 ## Checks and tests
 
 ```bash
