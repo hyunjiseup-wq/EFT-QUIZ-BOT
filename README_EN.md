@@ -3,8 +3,8 @@
 *[한국어](README.md)*
 
 A Discord quiz bot that tests knowledge of Escape from Tarkov's mechanics, systems, and lore.
-It uses a 4-choice button UI, and `questions.json` currently holds **464 questions**.
-Four questions are on hold, leaving 460 active questions. Each session randomly draws
+It uses a 4-choice button UI, and `questions.json` currently holds **474 questions**.
+Four questions are on hold, leaving 470 active questions. Each session randomly draws
 **General 2 · Medium 3 · Hard 15 · Expert 10 (30 questions total)** from the active pool per difficulty
 and shuffles the answer order too, so the same player sees a different combination every time they play,
 and even if questions leak into the community, their usefulness is limited.
@@ -15,9 +15,9 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 | Item | Current value |
 |---|---|
-| Question bank | 464 total — 449 common · 13 PvP-only · 2 PvE-only |
-| Question status | 460 active · 4 on hold (Q95, Q102, Q225, Q226) |
-| Playable pools | PvP 458 (`common+pvp`) · PvE 447 (`common+pve`) — active questions only |
+| Question bank | 474 total — 460 common · 13 PvP-only · 1 PvE-only |
+| Question status | 470 active · 4 on hold (Q95, Q102, Q225, Q226) |
+| Playable pools | PvP 469 (`common+pvp`) · PvE 457 (`common+pve`) — active questions only |
 | Session draw | General 2 · Medium 3 · Hard 15 · Expert 10 = 30 questions |
 | Maximum score | 1,380 points |
 | Question timer | 20 seconds per question |
@@ -28,7 +28,7 @@ The draw counts can be adjusted in `config.py`'s `SESSION_COUNTS` (though you ca
 
 PvP and PvE are **question-pool tags**, not a claim that every game mechanic differs between the
 two modes. The thirteen PvP-only questions cover facts that only apply on the PvP side, including Kord
-Breach seasonal rules. The two PvE-only questions cover facts whose answers differ in PvE Zone.
+Breach seasonal rules. The one PvE-only question (Q372) covers the historical Blackout PvE Labs timer.
 Mechanics shared by permanent PvP profiles and PvE, such as insurance, stay in `common`.
 
 ## Commands
@@ -215,6 +215,10 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 
 ## Large-event protection
 
+- Transient channel-lookup HTTP failures suppress requests for that channel for 30 seconds;
+  the next lookup after that interval retries. Reconnection or a recovered gateway cache clears
+  the delay. Forbidden (403) and missing (404) channels remain suppressed until cache recovery
+  or reconnection. This recovers subsequent lookups; it does not replay failed spectator logs.
 - SQLite starts in WAL mode with a 30-second busy timeout so result writes and ranking reads are
   much less likely to fail with `database is locked` under bursts.
 - SQLite `user_version` tracks the database schema (currently v2). If a database is newer than
@@ -229,8 +233,13 @@ point `.env`'s `QUIZ_DB_PATH` at an absolute path.
 - Concurrent starts by the same user reserve the first session before sending, while failed start
   messages and give-up log errors automatically release the session slot.
 - Give-up commands reserve an ephemeral response before supervisor-log work, avoiding Discord's
-  three-second response timeout. Sessions with a missing completion/timeout message are aborted
-  and released automatically.
+  three-second response timeout. In-progress sessions that lose their next-question message are
+  aborted and released automatically.
+- Once a completion is saved to the DB, a failed result-message edit/fetch or missing message does
+  not turn it into an aborted supervisor log. The session is finalized as completed and released.
+  If storage fails, the storage-failure reason survives a concurrent message failure. Message errors
+  do not trigger another DB write. This does not recover failed supervisor-log delivery or rewrite
+  historical logs.
 - Discord uses the existing root logger instead of adding a duplicate handler. CI runs once for a
   pull request and once again after its merge to `main`.
 - Quiz and supervisor dashboard message IDs are stored in SQLite. Even without pin permission or
@@ -288,6 +297,13 @@ After adding or editing questions, run `python check_questions.py` to validate f
 answer index, duplicates, category names, etc.). The bot only reads `questions.json` at startup,
 so **you need to restart the bot after editing.** The bot runs the same validation on startup and
 refuses to run with invalid questions.
+
+Save the bank as UTF-8 JSON without repeated fields such as `answer` or `mode` in one object.
+Duplicate fields are rejected instead of silently keeping the last value. Invalid difficulty/mode
+types are reported as validation errors. Explanations cannot be blank, and questions/choices differing
+only in surrounding whitespace count as duplicates; validation does not rewrite the original text.
+Omit `volatile` or use a JSON boolean (`true`/`false`). When `true`, a nonblank `volatile_note` is required.
+These checks prevent format errors; they do not establish the current factual accuracy of game content.
 
 ## Checks and tests
 
@@ -359,9 +375,9 @@ kill counts, faction-specific Drip-Out counts, and the Prestige event rollback r
 Eight event/unlock questions were also updated. Six Blackout questions explicitly ask about July 2026
 records, separating direct key use from entering an already-open room. Collector names the seven
 LL4 traders and the separate Fence reputation requirement, not a verified complete unlock checklist.
-Q410 and Q429
-now ask about **historical wiki reports**, not the current presence of a bug; whether those bugs remain
-or have been fixed is still unverified. See the [review record](docs/content-review-2026-09-22.md)
+Q410 and Q429 have been replaced with Battle Pass document acquisition rules and armor-material
+skill classification. This does not establish that the bugs in their previous versions were fixed.
+See the [review record](docs/content-review-2026-09-22.md)
 for each batch, evidence, and outstanding checks.
 Ten boss/AI questions were cross-checked, with content changes to seven. Home territories are
 distinguished from exclusive spawn maps, and Kollontay's locations and Big Pipe's equipment are
@@ -389,8 +405,20 @@ pool, not the PvE co-op/AI population context. Conflicting Interchange and night
 remain unresolved. Two minimap/kill-feed and two trader buyback questions still lack reliable current
 answer evidence. Q95, Q102, Q225, and Q226 are now on hold; their original text is archived and is not
 marked verified. `volatile` remains an advisory flag; only `enabled: false` excludes a question.
-Of 464 questions, **290 are `volatile`**; **460 questions have source/date records**.
-This is not a claim that all 464 questions were verified in the latest game client.
+On September 23, ten common questions (Q465–Q474) were added on malfunction symptoms, storage
+restrictions, and layered armor. Q26 and Q405 now use scenarios instead of repeating basic concepts.
+The [expansion review](docs/question-expansion-2026-09-23.md) records source age and evidence limits.
+No unresolved numeric values were finalized and no held questions were reactivated.
+Of 474 questions, **300 are `volatile`**; **470 questions have source/date records**.
+This is not a claim that all 474 questions were verified in the latest game client.
+
+The September 23 [full 474-question audit](docs/full-question-audit-2026-09-23.md) records a
+complete text review, not completed verification of every current-game fact.
+On September 24, Q144's Hall of Fame personal-kill requirement was removed to agree with Q338,
+and Q469 and Q471 were narrowed to regular PMC dogtags, preserving those three questions' modes and scoring.
+A follow-up replaced Q410/Q429 and moved Q410 into the common pool. The bank still holds 474 questions,
+470 active, with unchanged scoring; the playable PvP pool increased from 468 to 469.
+Validation of the remaining current values is still pending.
 
 Edited questions carry paired `reviewed_at` (review date) and `sources` (HTTPS URL list) fields.
 Include both when recording future reviews. `--volatile` displays them and validates their format.

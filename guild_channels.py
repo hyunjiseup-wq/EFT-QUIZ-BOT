@@ -6,12 +6,16 @@
 """
 
 import logging
+import time
 from collections.abc import Iterable, Sequence
 
 import discord
 
 # 존재하지 않거나 봇이 접근할 수 없는 ID를 매 세션마다 다시 조회하지 않도록 기억한다.
 _unresolvable_channel_ids: set[int] = set()
+# 서버 오류는 영구적인 채널 접근 실패가 아니다. 요청 폭주를 막고 다음 호출에서 재시도한다.
+_transient_retry_after: dict[int, float] = {}
+CHANNEL_RETRY_SECONDS = 30.0
 
 
 def _channel_guild_id(channel) -> int | None:
@@ -21,6 +25,7 @@ def _channel_guild_id(channel) -> int | None:
 def forget_unresolvable_channels() -> None:
     """재접속 등으로 캐시가 갱신됐을 때 실패 기록을 비운다."""
     _unresolvable_channel_ids.clear()
+    _transient_retry_after.clear()
 
 
 def guild_channel_id(
@@ -43,21 +48,37 @@ async def resolve_channel(
     *,
     label: str,
 ):
-    """캐시 우선으로 채널을 찾고, 없으면 한 번만 API로 조회한다."""
+    """캐시 우선 조회. 권한/삭제 오류는 기억하고 일시 HTTP 오류는 유예 후 재조회한다."""
     channel = client.get_channel(channel_id)
     if channel is not None:
+        _unresolvable_channel_ids.discard(channel_id)
+        _transient_retry_after.pop(channel_id, None)
         return channel
     if channel_id in _unresolvable_channel_ids:
         return None
+    if time.monotonic() < _transient_retry_after.get(channel_id, 0.0):
+        return None
+    _transient_retry_after.pop(channel_id, None)
     try:
         return await client.fetch_channel(channel_id)
-    except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+    except (discord.Forbidden, discord.NotFound):
         _unresolvable_channel_ids.add(channel_id)
         logger.warning(
             "%s 채널을 찾을 수 없습니다. 봇이 초대된 서버의 채널 ID인지 확인하세요. "
             "(channel=%s)",
             label,
             channel_id,
+        )
+        return None
+    except discord.HTTPException as error:
+        _transient_retry_after[channel_id] = time.monotonic() + CHANNEL_RETRY_SECONDS
+        logger.warning(
+            "%s 채널 조회 HTTP 오류. %.0f초 이후 다음 요청에서 재시도합니다. "
+            "(channel=%s, status=%s)",
+            label,
+            CHANNEL_RETRY_SECONDS,
+            channel_id,
+            error.status,
         )
         return None
 

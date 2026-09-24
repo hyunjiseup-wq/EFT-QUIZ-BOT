@@ -29,6 +29,79 @@ def make_question(qid: int, difficulty: str = "general") -> dict:
 
 
 class QuestionBankTests(unittest.TestCase):
+    def test_hall_of_fame_questions_do_not_restore_personal_kill_requirement(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        for qid in (144, 338):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertNotIn("직접 처치한", q["question"])
+                self.assertIn("본인 직접 처치 조건이 제거", q["explanation"])
+                self.assertIn("https://telegra.ph/Patch-1100-08-03", q["sources"])
+        self.assertEqual(questions[144]["choices"][questions[144]["answer"]],
+                         "홀 오브 페임(Hall of Fame)")
+
+    def test_storage_questions_limit_dogtags_to_regular_pmc_tags(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        for qid in (469, 471):
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertIn("일반 PMC 도그태그", q["choices"][q["answer"]])
+                self.assertIn("특수 도그태그", q["explanation"])
+                self.assertIn("일반화하지 않습니다", q["explanation"])
+                self.assertIn("현재 규칙으로 확정하지 않음", q["volatile_note"])
+
+    def test_practical_expansion_keeps_sources_scope_and_both_modes(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        new = [q for q in questions if 465 <= q["id"] <= 474]
+        self.assertEqual({q["id"] for q in new}, set(range(465, 475)))
+        for q in new:
+            with self.subTest(qid=q["id"]):
+                self.assertEqual(q["mode"], "common")
+                self.assertTrue(q.get("enabled", True))
+                expected_date = "2026-09-24" if q["id"] in {469, 471} else "2026-09-23"
+                self.assertEqual(q["reviewed_at"], expected_date)
+                self.assertTrue(q["sources"])
+                self.assertTrue(q["volatile"])
+                self.assertIn("검색 수집본", q["volatile_note"])
+                self.assertIn("실측 검증은 아님", q["volatile_note"])
+        self.assertEqual(
+            {d: sum(q["difficulty"] == d for q in new) for d in SESSION_COUNTS},
+            {"general": 0, "medium": 3, "hard": 6, "expert": 1},
+        )
+        for mode in ("pvp", "pve"):
+            self.assertEqual(len(filter_questions_for_mode(new, mode)), 10)
+
+    def test_practical_expansion_answer_indices_match_reviewed_meanings(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        expected = {
+            465: "배출 불량", 466: "탄창", 467: "마모가 증가",
+            468: "모르핀", 469: "도그태그", 470: "키카드도 수납",
+            471: "금 해골 반지", 472: "여러 부위", 473: "일부 감소", 474: "3등급이다",
+        }
+        for qid, fragment in expected.items():
+            with self.subTest(qid=qid):
+                q = questions[qid]
+                self.assertIn(fragment, q["choices"][q["answer"]])
+        self.assertIn("별개", questions[472]["explanation"])
+        self.assertIn("예시", questions[474]["explanation"])
+
+    def test_repeated_concepts_now_use_different_application_scenarios(self):
+        questions = {q["id"]: q for q in load_questions(
+            Path(__file__).resolve().parents[1] / "questions.json"
+        )}
+        self.assertIn("일반 백팩", questions[26]["question"])
+        self.assertIn("보험 회수 여부는 별개", questions[26]["explanation"])
+        self.assertIn("소프트 아머가 한 겹 더", questions[405]["question"])
+        self.assertIn("항상 체력 피해 0", questions[405]["explanation"])
+        for qid in (26, 405):
+            self.assertEqual(questions[qid]["reviewed_at"], "2026-09-23")
+
     def test_real_bank_600_sessions_keep_difficulty_counts_unique_ids_and_mode_isolation(self):
         questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
         self.assertEqual(validate_questions(questions, SESSION_COUNTS), [])
@@ -290,20 +363,37 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("스태미나 부족", questions[435]["question"])
         self.assertIn("완전 면역과 구분", questions[435]["explanation"])
 
-    def test_historical_skill_and_bug_questions_do_not_claim_current_runtime_state(self):
+    def test_historical_skill_questions_do_not_claim_current_runtime_state(self):
         path = Path(__file__).resolve().parents[1] / "questions.json"
         questions = {q["id"]: q for q in load_questions(path)}
         self.assertIn("미구현(Upcoming)", questions[202]["question"])
         self.assertIn("출시를 보장하지", questions[272]["explanation"])
         self.assertIn("목록에 이름이 있다는 사실", questions[293]["explanation"])
         self.assertIn("0.14.5", questions[331]["question"])
-        for qid in (410, 429):
-            with self.subTest(qid=qid):
-                self.assertTrue(questions[qid]["question"].startswith("과거"))
-                self.assertIn("위키", questions[qid]["question"])
-                self.assertIn("현재 재현·수정 여부는 미확인", questions[qid]["volatile_note"])
-        self.assertNotIn("정상 작동합니다", questions[429]["explanation"])
-        self.assertNotIn("정상적으로 지급됩니다", questions[410]["explanation"])
+
+    def test_battle_pass_document_question_is_available_in_both_modes(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        question = next(q for q in questions if q["id"] == 410)
+        self.assertEqual(question["mode"], "common")
+        self.assertIn("개인별", question["choices"][question["answer"]])
+        self.assertIn("블랙 디비전 대원의 문서는 공용", question["choices"][question["answer"]])
+        self.assertEqual(question["sources"], ["https://telegra.ph/Patch-1100-08-03"])
+        for mode in ("pvp", "pve"):
+            with self.subTest(mode=mode):
+                self.assertIn(410, {q["id"] for q in filter_questions_for_mode(questions, mode)})
+
+    def test_armor_material_question_replaces_unverified_intellect_bug(self):
+        questions = load_questions(Path(__file__).resolve().parents[1] / "questions.json")
+        question = next(q for q in questions if q["id"] == 429)
+        self.assertEqual(question["category"], "스킬")
+        self.assertEqual(question["difficulty"], "expert")
+        self.assertEqual(
+            question["choices"][question["answer"]],
+            "UHMWPE → Light Vests / 세라믹 → Heavy Vests",
+        )
+        self.assertNotIn("Intellect", question["question"])
+        self.assertEqual(question["sources"], ["https://wikiwiki.jp/eft/ボディアーマー"])
+        self.assertIn("최신 클라이언트 검증은 미완료", question["volatile_note"])
 
     def test_fifth_review_batch_keeps_provenance_modes_and_volatile_numeric_rules(self):
         path = Path(__file__).resolve().parents[1] / "questions.json"
@@ -315,10 +405,11 @@ class QuestionBankTests(unittest.TestCase):
         )
         for qid in qids:
             with self.subTest(qid=qid):
-                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                expected_date = "2026-09-24" if qid in (410, 429) else "2026-09-22"
+                self.assertEqual(questions[qid]["reviewed_at"], expected_date)
                 self.assertTrue(questions[qid]["sources"])
                 self.assertEqual(
-                    questions[qid].get("mode", "common"), "pve" if qid == 410 else "common"
+                    questions[qid].get("mode", "common"), "common"
                 )
                 if qid not in (66, 161):
                     self.assertTrue(questions[qid]["volatile"])
@@ -485,7 +576,8 @@ class QuestionBankTests(unittest.TestCase):
         )
         for qid in qids:
             with self.subTest(qid=qid):
-                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                reviewed_at = "2026-09-23" if qid == 26 else "2026-09-22"
+                self.assertEqual(questions[qid]["reviewed_at"], reviewed_at)
                 self.assertTrue(questions[qid]["sources"])
                 self.assertEqual(questions[qid].get("mode", "common"), "common")
         for qid in (176, 219, 396, 399, 400, 401, 402, 412):
@@ -681,7 +773,8 @@ class QuestionBankTests(unittest.TestCase):
         )
         for qid in qids:
             with self.subTest(qid=qid):
-                self.assertEqual(questions[qid]["reviewed_at"], "2026-09-22")
+                reviewed_at = "2026-09-23" if qid == 405 else "2026-09-22"
+                self.assertEqual(questions[qid]["reviewed_at"], reviewed_at)
                 self.assertTrue(questions[qid]["sources"])
                 self.assertEqual(questions[qid].get("mode", "common"), "common")
                 self.assertEqual(questions[qid]["answer"], 0)
@@ -1092,7 +1185,7 @@ class QuestionBankTests(unittest.TestCase):
         self.assertIn("수집을 의뢰", questions[32]["question"])
         self.assertIn("이익은 보장되지", questions[32]["explanation"])
         self.assertEqual(questions[142]["choices"][0], "문샤인 또는 인텔리전스 폴더")
-        self.assertIn("직접 처치한 상대 진영", questions[144]["question"])
+        self.assertIn("상대 진영 PMC의 도그태그", questions[144]["question"])
         self.assertIn("전투 스킬 성장", questions[144]["explanation"])
 
     def test_armor_review_separates_carrier_class_and_original_durability(self):
@@ -1135,7 +1228,8 @@ class QuestionBankTests(unittest.TestCase):
                 continue
             with self.subTest(qid=q["id"]):
                 self.assertTrue(q["sources"])
-                self.assertEqual(q["reviewed_at"], "2026-09-22")
+                expected_date = "2026-09-24" if q["id"] == 144 else "2026-09-22"
+                self.assertEqual(q["reviewed_at"], expected_date)
                 self.assertEqual(q["answer"], 0)
                 self.assertEqual(q.get("mode", "common"), "common")
                 if q["id"] in changing:
@@ -1401,9 +1495,9 @@ class QuestionBankTests(unittest.TestCase):
             self.assertTrue(question["disabled_reason"])
             self.assertNotIn("reviewed_at", question)
             self.assertNotIn("sources", question)
-        self.assertEqual(len(questions), 464)
-        self.assertEqual(len(filter_questions_for_mode(questions, "pvp")), 458)
-        self.assertEqual(len(filter_questions_for_mode(questions, "pve")), 447)
+        self.assertEqual(len(questions), 474)
+        self.assertEqual(len(filter_questions_for_mode(questions, "pvp")), 469)
+        self.assertEqual(len(filter_questions_for_mode(questions, "pve")), 457)
 
     def test_mode_filter_includes_common_and_requested_mode_only(self):
         common = make_question(1)
@@ -1445,6 +1539,77 @@ class QuestionBankTests(unittest.TestCase):
         questions = [make_question(1), make_question(2)]
 
         self.assertEqual(validate_questions(questions, {"general": 2}), [])
+
+    def test_invalid_field_types_are_reported_without_crashing(self):
+        for field, message in (("difficulty", "알 수 없는 난이도"), ("mode", "알 수 없는 mode")):
+            for value in ([], {}, ["general"], {"name": "common"}, None, True, 1):
+                with self.subTest(field=field, value=value):
+                    question = {**make_question(1), field: value}
+                    errors = validate_questions([question], {"general": 1})
+                    self.assertTrue(any(message in error for error in errors))
+
+    def test_explanation_must_be_nonempty_text(self):
+        for value in ("", " \t\n", None, [], 0):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "explanation": value}], {"general": 1}
+                )
+                self.assertTrue(any("explanation" in error for error in errors))
+
+    def test_volatile_rejects_non_boolean_flags_even_with_note(self):
+        for value in ("false", "true", 0, 1, None, [], {}):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "volatile": value, "volatile_note": "메모"}],
+                    {"general": 1},
+                )
+                self.assertTrue(any("volatile는 true 또는 false" in error for error in errors))
+
+    def test_volatile_requires_nonempty_note_only_when_true(self):
+        for value in (None, "", " \t\n", [], 0):
+            with self.subTest(value=value):
+                errors = validate_questions(
+                    [{**make_question(1), "volatile": True, "volatile_note": value}],
+                    {"general": 1},
+                )
+                self.assertTrue(any("volatile_note" in error for error in errors))
+        for fields in ({}, {"volatile": False}, {"volatile": True, "volatile_note": "검토 필요"}):
+            with self.subTest(fields=fields):
+                self.assertEqual(
+                    validate_questions([{**make_question(1), **fields}], {"general": 1}), []
+                )
+
+    def test_duplicate_text_and_choices_ignore_surrounding_whitespace(self):
+        questions = [make_question(1), {**make_question(2), "question": "  문제 1\n"}]
+        errors = validate_questions(questions, {"general": 2})
+        self.assertTrue(any("중복된 문제 지문" in error for error in errors))
+        question = {**make_question(1), "choices": ["정답", " 정답\t", "오답 2", "오답 3"]}
+        errors = validate_questions([question], {"general": 1})
+        self.assertTrue(any("중복된 보기" in error for error in errors))
+        self.assertEqual(question["choices"][1], " 정답\t")  # 검증 과정에서 원문을 수정하지 않는다.
+
+    def test_loader_reports_invalid_utf8_as_question_data_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            path.write_bytes(b'["\xff"]')
+            with self.assertRaisesRegex(QuestionDataError, "UTF-8"):
+                load_questions(path)
+
+    def test_loader_rejects_duplicate_json_fields_instead_of_overwriting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            for field in ("answer", "mode", "enabled"):
+                with self.subTest(field=field):
+                    path.write_text('[{"' + field + '": 0, "' + field + '": 1}]', encoding="utf-8")
+                    with self.assertRaisesRegex(QuestionDataError, "중복된 JSON 필드"):
+                        load_questions(path)
+
+    def test_validated_loader_reports_malformed_question_instead_of_type_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "questions.json"
+            path.write_text(json.dumps([{**make_question(1), "difficulty": []}]), encoding="utf-8")
+            with self.assertRaisesRegex(QuestionDataError, "알 수 없는 난이도"):
+                load_validated_questions(path, {"general": 1})
 
     def test_validation_finds_duplicate_id_and_shortage(self):
         questions = [make_question(1), make_question(1)]

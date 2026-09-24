@@ -212,10 +212,10 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(str(len(bot.ALL_QUESTIONS)), values)
         self.assertIn(str(bot.config.TOTAL_QUESTIONS), values)
         self.assertIn(str(bot.config.QUESTION_TIME_LIMIT), values)
-        self.assertEqual(len(bot.ALL_QUESTIONS), 460)
+        self.assertEqual(len(bot.ALL_QUESTIONS), 470)
         self.assertTrue({95, 102, 225, 226}.isdisjoint(q["id"] for q in bot.ALL_QUESTIONS))
-        self.assertIn("PvP 458", values)
-        self.assertIn("PvE 447", values)
+        self.assertIn("PvP 469", values)
+        self.assertIn("PvE 457", values)
 
     def test_supervisor_dashboard_embed_hides_internal_marker(self):
         embed = bot.build_supervisor_dashboard_embed()
