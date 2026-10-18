@@ -421,6 +421,102 @@ class BotHelpersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message, "new-supervisor-dashboard")
         channel.send.assert_awaited_once()
 
+    async def test_dashboard_lookup_errors_do_not_create_duplicates_or_replace_saved_id(self):
+        cases = (
+            (500, 0, bot.discord.HTTPException),
+            (403, 50001, bot.discord.Forbidden),
+            (404, 10003, bot.discord.NotFound),
+            (404, 0, bot.discord.NotFound),
+        )
+        for upsert in (bot.upsert_dashboard, bot.upsert_supervisor_dashboard):
+            for status, code, error_type in cases:
+                with self.subTest(upsert=upsert.__name__, status=status, code=code):
+                    error = error_type(
+                        Mock(status=status, reason="lookup failed", headers={}),
+                        {"code": code, "message": "lookup failed"},
+                    )
+                    channel = SimpleNamespace(
+                        id=20, guild=SimpleNamespace(id=10, emojis=[]),
+                        fetch_message=AsyncMock(side_effect=error),
+                        pins=Mock(return_value=empty_async_iterator()),
+                        history=Mock(return_value=empty_async_iterator()),
+                        send=AsyncMock(),
+                    )
+                    with (
+                        patch.object(bot.database, "get_dashboard_message", return_value=(20, 999)),
+                        patch.object(bot.database, "save_dashboard_message") as save,
+                    ):
+                        with self.assertRaises(error_type):
+                            await upsert(channel)
+                    channel.pins.assert_not_called()
+                    channel.history.assert_not_called()
+                    channel.send.assert_not_awaited()
+                    save.assert_not_called()
+
+    async def test_deleted_dashboard_falls_back_to_search_before_creating(self):
+        for upsert, marker in (
+            (bot.upsert_dashboard, bot.DASHBOARD_MARKER),
+            (bot.upsert_supervisor_dashboard, bot.SUPERVISOR_DASHBOARD_MARKER),
+        ):
+            for found in (True, False):
+                with self.subTest(upsert=upsert.__name__, found=found):
+                    dashboard = SimpleNamespace(
+                        id=1000, author=bot.bot.user, pinned=True,
+                        embeds=[bot.discord.Embed().set_footer(text=marker)],
+                        edit=AsyncMock(),
+                    )
+                    error = bot.discord.NotFound(
+                        Mock(status=404, reason="Not Found", headers={}),
+                        {"code": 10008, "message": "Unknown Message"},
+                    )
+                    channel = SimpleNamespace(
+                        id=20, guild=SimpleNamespace(id=10, emojis=[]),
+                        fetch_message=AsyncMock(side_effect=error),
+                        pins=Mock(return_value=empty_async_iterator()),
+                        history=Mock(return_value=async_iterator(dashboard) if found
+                                     else empty_async_iterator()),
+                        send=AsyncMock(return_value=dashboard),
+                    )
+                    with (
+                        patch.object(bot.database, "get_dashboard_message", return_value=(20, 999)),
+                        patch.object(bot.database, "save_dashboard_message") as save,
+                    ):
+                        result, created = await upsert(channel)
+                    self.assertIs(result, dashboard)
+                    self.assertEqual(created, not found)
+                    channel.history.assert_called_once_with(limit=100)
+                    self.assertEqual(channel.send.await_count, 0 if found else 1)
+                    self.assertEqual(dashboard.edit.await_count, 1 if found else 0)
+                    self.assertEqual(save.call_args.args[-1], 1000)
+
+    async def test_dashboard_lookup_recovers_on_next_attempt_without_new_message(self):
+        dashboard = SimpleNamespace(
+            id=999, author=bot.bot.user, pinned=True,
+            embeds=[bot.discord.Embed().set_footer(text=bot.DASHBOARD_MARKER)],
+            edit=AsyncMock(),
+        )
+        error = bot.discord.HTTPException(
+            Mock(status=503, reason="Unavailable", headers={}), "temporary failure"
+        )
+        channel = SimpleNamespace(
+            id=20, guild=SimpleNamespace(id=10, emojis=[]),
+            fetch_message=AsyncMock(side_effect=[error, dashboard]),
+            pins=Mock(), history=Mock(), send=AsyncMock(),
+        )
+        with (
+            patch.object(bot.database, "get_dashboard_message", return_value=(20, 999)),
+            patch.object(bot.database, "save_dashboard_message") as save,
+        ):
+            with self.assertRaises(bot.discord.HTTPException):
+                await bot.upsert_dashboard(channel)
+            result, created = await bot.upsert_dashboard(channel)
+        self.assertIs(result, dashboard)
+        self.assertFalse(created)
+        channel.send.assert_not_awaited()
+        channel.pins.assert_not_called()
+        channel.history.assert_not_called()
+        save.assert_called_once_with(10, "quiz", 20, 999)
+
     async def test_supervisor_dashboard_migrates_legacy_v1_footer_in_place(self):
         existing = Mock()
         existing.author = bot.bot.user
