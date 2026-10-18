@@ -48,13 +48,24 @@ class QuestionDataError(ValueError):
 
 
 def load_questions(path: str | Path) -> list[dict]:
-    """JSON 파일을 읽고 최상위 배열 여부를 확인한다."""
+    """UTF-8 JSON을 읽고 중복 필드와 잘못된 최상위 구조를 거부한다."""
     source = Path(path)
+
+    def unique_object(pairs: list[tuple[str, object]]) -> dict:
+        result: dict = {}
+        for key, value in pairs:
+            if key in result:
+                raise QuestionDataError([f"중복된 JSON 필드: {source} ({key})"])
+            result[key] = value
+        return result
+
     try:
         with source.open(encoding="utf-8") as file:
-            questions = json.load(file)
+            questions = json.load(file, object_pairs_hook=unique_object)
     except OSError as exc:
         raise QuestionDataError([f"문제 파일을 읽을 수 없음: {source} ({exc})"]) from exc
+    except UnicodeDecodeError as exc:
+        raise QuestionDataError([f"문제 파일은 UTF-8 인코딩이어야 함: {source}"]) from exc
     except json.JSONDecodeError as exc:
         raise QuestionDataError(
             [f"JSON 문법 오류: {source}:{exc.lineno}:{exc.colno} ({exc.msg})"]
@@ -118,19 +129,19 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         text = question.get("question")
         if not isinstance(text, str) or not text.strip():
             errors.append(f"{label}: 문제 지문이 비어 있거나 문자열이 아님")
-        elif text in seen_texts:
+        elif text.strip() in seen_texts:
             errors.append(f"{label}: 중복된 문제 지문")
         else:
-            seen_texts.add(text)
+            seen_texts.add(text.strip())
 
         difficulty = question.get("difficulty")
-        if difficulty not in session_counts:
+        if not isinstance(difficulty, str) or difficulty not in session_counts:
             errors.append(f"{label}: 알 수 없는 난이도 '{difficulty}'")
         elif is_question_enabled(question):
             difficulty_counts[difficulty] += 1
 
         mode = question.get("mode", "common")
-        if mode not in QUESTION_MODES:
+        if not isinstance(mode, str) or mode not in QUESTION_MODES:
             errors.append(
                 f"{label}: 알 수 없는 mode '{mode}' "
                 f"(허용: {', '.join(QUESTION_MODES)})"
@@ -150,7 +161,7 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         if choices:
             if any(not isinstance(choice, str) or not choice.strip() for choice in choices):
                 errors.append(f"{label}: 모든 보기는 비어 있지 않은 문자열이어야 함")
-            elif len(set(choices)) != len(choices):
+            elif len({choice.strip() for choice in choices}) != len(choices):
                 errors.append(f"{label}: 중복된 보기 존재")
 
         answer = question.get("answer")
@@ -161,11 +172,17 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
         ):
             errors.append(f"{label}: answer 인덱스가 잘못됨 ({answer})")
 
-        if not isinstance(question.get("explanation"), str):
-            errors.append(f"{label}: explanation은 문자열이어야 함")
+        explanation = question.get("explanation")
+        if not isinstance(explanation, str) or not explanation.strip():
+            errors.append(f"{label}: explanation은 비어 있지 않은 문자열이어야 함")
 
-        if question.get("volatile") and not isinstance(question.get("volatile_note"), str):
-            errors.append(f"{label}: volatile 문제에는 volatile_note가 필요함")
+        volatile = question.get("volatile", False)
+        if not isinstance(volatile, bool):
+            errors.append(f"{label}: volatile는 true 또는 false여야 함")
+        if volatile is True:
+            note = question.get("volatile_note")
+            if not isinstance(note, str) or not note.strip():
+                errors.append(f"{label}: volatile 문제에는 비어 있지 않은 volatile_note가 필요함")
 
         # 선택적 근거 기록. 형식 검증일 뿐, 링크 내용의 사실성/최신성을 보증하지 않는다.
         if "reviewed_at" in question or "sources" in question:
@@ -219,10 +236,10 @@ def validate_questions(questions: Sequence[object], session_counts: Mapping[str,
                 continue
             if not is_question_enabled(raw_question):
                 continue
-            if raw_question.get("mode", "common") not in {"common", mode}:
+            if raw_question.get("mode", "common") not in ("common", mode):
                 continue
             difficulty = raw_question.get("difficulty")
-            if difficulty in mode_counts:
+            if isinstance(difficulty, str) and difficulty in mode_counts:
                 mode_counts[difficulty] += 1
 
         for difficulty, required_count in session_counts.items():

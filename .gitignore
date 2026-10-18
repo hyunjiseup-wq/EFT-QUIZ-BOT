@@ -12,3 +12,6 @@ __pycache__/
 .uv-cache/
 venv/
 .venv/
+build/
+dist/
+*.egg-info/

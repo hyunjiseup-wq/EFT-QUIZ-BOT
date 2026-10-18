@@ -247,6 +247,87 @@ class QuizCompletionTests(unittest.IsolatedAsyncioTestCase):
         next_view.stop.assert_not_called()
         finalize_admin_log.assert_not_awaited()
 
+    async def test_saved_completion_stays_complete_when_result_message_is_unavailable(self):
+        for failure in ("edit", "fetch", "missing"):
+            with self.subTest(failure=failure):
+                session = make_session()
+                interaction = None if failure == "missing" else make_interaction()
+                if interaction is not None:
+                    response = Mock(status=404, reason="Not Found", headers={})
+                    target = (
+                        interaction.edit_original_response if failure == "edit"
+                        else interaction.original_response
+                    )
+                    target.side_effect = discord.HTTPException(response, "expired")
+                finalize = AsyncMock()
+                with (
+                    patch.dict(active_sessions, {(10, 1): session}, clear=True),
+                    patch.object(quiz_completion.asyncio, "to_thread", new=AsyncMock()) as save,
+                ):
+                    await quiz_completion.advance_or_finish(
+                        interaction, session, "완료",
+                        build_final_embed=Mock(), build_question_embed=Mock(),
+                        answer_view_factory=Mock(), finalize_admin_log=finalize,
+                        quiz_icon_text=Mock(), logger=Mock(),
+                    )
+                    self.assertNotIn((10, 1), active_sessions)
+                save.assert_awaited_once()
+                finalize.assert_awaited_once_with(session, aborted=False)
+                self.assertTrue(session.finished)
+
+    async def test_storage_failure_reason_survives_result_message_http_failure(self):
+        session = make_session()
+        interaction = make_interaction()
+        response = Mock(status=404, reason="Not Found", headers={})
+        interaction.edit_original_response.side_effect = discord.HTTPException(response, "expired")
+        finalize = AsyncMock()
+        with (
+            patch.dict(active_sessions, {(10, 1): session}, clear=True),
+            patch.object(
+                quiz_completion.asyncio, "to_thread",
+                new=AsyncMock(side_effect=RuntimeError("db failure")),
+            ) as save,
+        ):
+            await quiz_completion.advance_or_finish(
+                interaction, session, "완료",
+                build_final_embed=Mock(), build_question_embed=Mock(),
+                answer_view_factory=Mock(), finalize_admin_log=finalize,
+                quiz_icon_text=Mock(), logger=Mock(),
+            )
+            self.assertNotIn((10, 1), active_sessions)
+        save.assert_awaited_once()
+        finalize.assert_awaited_once_with(session, aborted=True, reason="기록 저장 실패")
+
+    async def test_unexpected_result_message_error_still_finalizes_storage_outcome(self):
+        for stored in (True, False):
+            with self.subTest(stored=stored):
+                session = make_session()
+                interaction = make_interaction()
+                interaction.edit_original_response.side_effect = RuntimeError("message failure")
+                finalize = AsyncMock()
+                with (
+                    patch.dict(active_sessions, {(10, 1): session}, clear=True),
+                    patch.object(
+                        quiz_completion.asyncio, "to_thread",
+                        new=AsyncMock(side_effect=None if stored else RuntimeError("db failure")),
+                    ),
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "message failure"):
+                        await quiz_completion.advance_or_finish(
+                            interaction, session, "완료",
+                            build_final_embed=Mock(), build_question_embed=Mock(),
+                            answer_view_factory=Mock(), finalize_admin_log=finalize,
+                            quiz_icon_text=Mock(), logger=Mock(),
+                        )
+                    self.assertNotIn((10, 1), active_sessions)
+                if stored:
+                    finalize.assert_awaited_once_with(session, aborted=False)
+                else:
+                    finalize.assert_awaited_once_with(
+                        session, aborted=True, reason="기록 저장 실패"
+                    )
+                self.assertTrue(session.finished)
+
     async def test_next_question_message_failure_stops_new_view(self):
         session = make_session(question_count=2)
         interaction = make_interaction()

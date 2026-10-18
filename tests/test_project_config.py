@@ -7,6 +7,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProjectConfigTests(unittest.TestCase):
+    def test_gitignore_excludes_regenerable_packaging_output(self):
+        patterns = set((ROOT / ".gitignore").read_text(encoding="utf-8").splitlines())
+        self.assertTrue({"build/", "dist/", "*.egg-info/"}.issubset(patterns))
+
+    def test_readmes_link_full_audit_and_followup_without_claiming_completion(self):
+        for filename in ("README.md", "README_EN.md"):
+            with self.subTest(filename=filename):
+                contents = (ROOT / filename).read_text(encoding="utf-8")
+                self.assertIn("docs/full-question-audit-2026-09-23.md", contents)
+                self.assertIn("Q144", contents)
+                self.assertIn("Q469", contents)
+                self.assertIn("Q471", contents)
+
     def test_requirements_match_pyproject_runtime_dependencies(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         match = re.search(r"(?ms)^dependencies\s*=\s*\[(.*?)^\]", pyproject)

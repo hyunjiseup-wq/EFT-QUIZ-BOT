@@ -40,8 +40,11 @@ async def find_dashboard_message(
     if preferred_message_id and hasattr(channel, "fetch_message"):
         try:
             message = await channel.fetch_message(preferred_message_id)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-            pass
+        except discord.NotFound as error:
+            # Unknown Message만 부재로 취급한다. 권한/서버 오류를 삼키면 오래된 기존
+            # 대시보드를 못 찾은 채 새 메시지를 만들고 저장 ID까지 덮어쓸 수 있다.
+            if error.code != 10008:
+                raise
         else:
             if is_dashboard_message(
                 message,

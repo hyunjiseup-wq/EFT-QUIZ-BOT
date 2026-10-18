@@ -12,9 +12,9 @@ class QuestionCheckTests(unittest.TestCase):
         with patch("sys.argv", ["check_questions.py", "--disabled"]), redirect_stdout(output):
             check_questions.main()
         report = output.getvalue()
-        self.assertIn("총 464문제 (활성 460 · 출제 보류 4)", report)
-        self.assertIn("PVP 출제 가능: 458문제", report)
-        self.assertIn("PVE 출제 가능: 447문제", report)
+        self.assertIn("총 474문제 (활성 470 · 출제 보류 4)", report)
+        self.assertIn("PVP 출제 가능: 469문제", report)
+        self.assertIn("PVE 출제 가능: 457문제", report)
         for qid in (95, 102, 225, 226):
             self.assertIn(f"[id {qid} · 출제 보류]", report)
         self.assertNotIn("현재 정답:", report)
